@@ -215,53 +215,33 @@ export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
           {activeCategory === "all" ? "All Habits" : `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Habits`}
         </h3>
         <div className="space-y-3">
-          {/* Use HabitSearch component instead */}
           <HabitSearch
-              key={habit.id}
-              title={habit.title}
-              points={habit.points}
-              category={habit.category}
-              description={habit.description}
-              selected={selectedHabits.includes(habit.id)}
-              onClick={() => toggleHabit(habit.id)}
-            />
-          ))}
+            selectedHabits={selectedHabits}
+            onHabitToggle={handleHabitToggle}
+            maxPoints={mode === "standard" ? 75 : 100}
+            minHabits={mode === "standard" ? 6 : 1}
+          />
         </div>
       </div>
 
-      {/* Selected Habits Summary */}
-      {selectedHabits.length > 0 && (
-        <div className="gaming-card p-4">
-          <h4 className="font-semibold mb-3">Selected Habits Summary</h4>
-          <div className="flex flex-wrap gap-2">
-            {selectedHabits.map(habitId => {
-              const habit = allHabits.find(h => h.id === habitId);
-              return habit ? (
-                <Badge key={habitId} variant="secondary" className="flex items-center gap-1">
-                  {habit.title} 
-                  <span className="text-energy font-bold">+{habit.points}</span>
-                </Badge>
-              ) : null;
-            })}
+      {/* Submit Button */}
+      <Button
+        onClick={handleSubmit}
+        disabled={!isRequirementsMet || submitting}
+        className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground"
+      >
+        {submitting ? (
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+            Saving Habits...
           </div>
-        </div>
-      )}
-
-      {/* Confirm Button */}
-      <div className="sticky bottom-4">
-        <Button 
-          variant="gaming" 
-          size="lg" 
-          className="w-full"
-          disabled={!isValidSelection}
-        >
-          <Target className="w-5 h-5" />
-          {isValidSelection 
-            ? `Confirm Challenge (${totalPoints} points)` 
-            : `Select ${6 - selectedHabits.length} more habits (${Math.max(0, minRequired - totalPoints)} points needed)`
-          }
-        </Button>
-      </div>
+        ) : (
+          <>
+            <Target className="w-5 h-5 mr-2" />
+            Confirm Selection ({selectedHabits.length} habits)
+          </>
+        )}
+      </Button>
     </div>
   );
 };
