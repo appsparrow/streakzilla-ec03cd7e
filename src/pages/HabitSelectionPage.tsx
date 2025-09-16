@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +18,12 @@ import {
   CheckCircle,
   AlertCircle,
   Flame,
-  Trophy
+  Trophy,
+  Search,
+  Filter,
+  Star,
+  Zap,
+  X
 } from "lucide-react";
 
 interface Habit {
@@ -51,8 +60,20 @@ export const HabitSelectionPage = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [selectedHabits, setSelectedHabits] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showAddHabit, setShowAddHabit] = useState(false);
+  const [newHabit, setNewHabit] = useState({
+    title: "",
+    description: "",
+    points: 10,
+    category: "custom",
+    frequency: "daily",
+    default_set: "custom",
+  });
 
   useEffect(() => {
     fetchHabits();
@@ -85,14 +106,10 @@ export const HabitSelectionPage = () => {
 
     try {
       const { data, error } = await supabase
-        .from("user_habits")
-        .select("habit_id")
-        .eq("group_id", groupId)
-        .eq("user_id", user.id);
+        .rpc('get_user_selected_habits', { p_group_id: groupId, p_user_id: user.id });
 
       if (error) throw error;
-      
-      const habitIds = data?.map(uh => uh.habit_id) || [];
+      const habitIds = (data || []).map((uh: any) => uh.habit_id);
       setSelectedHabits(habitIds);
     } catch (error: any) {
       console.error("Error fetching user habits:", error);
@@ -161,9 +178,75 @@ export const HabitSelectionPage = () => {
     }
   };
 
-  const filteredHabits = activeCategory === "all" 
-    ? habits 
-    : habits.filter(habit => habit.category === activeCategory);
+  const handleAddHabit = async () => {
+    try {
+      const slug = newHabit.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      if (!slug) return;
+      const { data, error } = await supabase.rpc('add_habit_if_absent', {
+        p_slug: slug,
+        p_title: newHabit.title.trim(),
+        p_description: newHabit.description.trim(),
+        p_points: Number(newHabit.points) || 10,
+        p_category: newHabit.category,
+        p_frequency: newHabit.frequency,
+        p_default_set: newHabit.default_set,
+      });
+      if (error) throw error;
+      // Refresh list after insert
+      await fetchHabits();
+      setShowAddHabit(false);
+      setNewHabit({ title: "", description: "", points: 10, category: "custom", frequency: "daily", default_set: "custom" });
+      toast({ title: "Habit added", description: "Your habit was added to the common pool." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to add habit", variant: "destructive" });
+    }
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategories([]);
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors = {
+      'fitness': 'bg-red-500/20 text-red-300 border-red-500/30',
+      'diet': 'bg-green-500/20 text-green-300 border-green-500/30',
+      'hydration': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      'reading': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      'learning': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+      'mental': 'bg-pink-500/20 text-pink-300 border-pink-500/30',
+      'creativity': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      'lifestyle': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+      'wellness': 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+      'finance': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    };
+    return colors[category as keyof typeof colors] || 'bg-muted/20 text-muted-foreground border-border';
+  };
+
+  const filteredHabits = habits.filter(habit => {
+    // Filter by search term
+    const matchesSearch = !searchTerm || 
+      habit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      habit.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      habit.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Filter by category tabs
+    const matchesCategory = activeCategory === "all" || habit.category === activeCategory;
+
+    // Filter by selected categories
+    const matchesSelectedCategories = selectedCategories.length === 0 || 
+      selectedCategories.includes(habit.category);
+
+    return matchesSearch && matchesCategory && matchesSelectedCategories;
+  });
 
   const getHabitsByDifficulty = (difficulty: string) => {
     return filteredHabits.filter(habit => habit.default_set === difficulty);
@@ -197,25 +280,107 @@ export const HabitSelectionPage = () => {
           <div className="w-20" />
         </div>
 
-        {/* Selection Summary */}
+        {/* Search and Filter Bar */}
         <Card className="gaming-card">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search habits..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="border-border text-foreground hover:bg-muted/50"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+              </div>
+
+              {/* Active Filters */}
+              {(searchTerm || selectedCategories.length > 0) && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Active filters:</span>
+                  {searchTerm && (
+                    <Badge variant="secondary" className="bg-secondary/20 text-secondary">
+                      Search: {searchTerm}
+                    </Badge>
+                  )}
+                  {selectedCategories.map(category => (
+                    <Badge 
+                      key={category} 
+                      variant="secondary" 
+                      className="bg-secondary/20 text-secondary cursor-pointer hover:bg-secondary/30"
+                      onClick={() => toggleCategory(category)}
+                    >
+                      {category}
+                      <X className="w-3 h-3 ml-1" />
+                    </Badge>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Clear all
+                  </Button>
+                </div>
+              )}
+
+              {/* Category Filters */}
+              {showFilters && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-foreground">Filter by Category</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    {CATEGORIES.slice(1).map(category => (
+                      <Button
+                        key={category.id}
+                        variant={selectedCategories.includes(category.id) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleCategory(category.id)}
+                        className={`justify-start text-xs ${
+                          selectedCategories.includes(category.id)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'border-border text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        {category.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Selection Summary */}
+        <Card className="gaming-card border-primary/20">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-lg font-semibold">Selection Summary</p>
+                <p className="text-lg font-semibold">Selection Progress</p>
                 <p className="text-sm text-muted-foreground">
-                  Choose at least 6 habits worth 75+ points total
+                  Choose at least 6 powers worth 75+ scales total
                 </p>
               </div>
               <div className="text-right">
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold">{selectedHabits.length}</p>
-                    <p className="text-sm text-muted-foreground">Habits</p>
+                    <p className="text-2xl font-bold text-foreground">{selectedHabits.length}</p>
+                    <p className="text-sm text-muted-foreground">Powers</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold gradient-text">{getTotalPoints()}</p>
-                    <p className="text-sm text-muted-foreground">Points</p>
+                    <p className="text-sm text-muted-foreground">Scales</p>
                   </div>
                   <div className="text-center">
                     {isValidSelection() ? (
@@ -232,6 +397,11 @@ export const HabitSelectionPage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Results Count */}
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredHabits.length} of {habits.length} powers
+        </div>
 
         {/* Category Tabs */}
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>
@@ -257,26 +427,49 @@ export const HabitSelectionPage = () => {
                   {getHabitsByDifficulty("hard").map((habit) => (
                     <Card 
                       key={habit.id} 
-                      className={`gaming-card cursor-pointer transition-all hover:scale-105 ${
-                        selectedHabits.includes(habit.id) ? 'ring-2 ring-primary' : ''
+                      className={`gaming-card cursor-pointer transition-all hover:scale-[1.02] ${
+                        selectedHabits.includes(habit.id)
+                          ? 'border-accent bg-accent/5'
+                          : 'border-border hover:border-primary/30'
                       }`}
                       onClick={() => handleHabitToggle(habit.id)}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Checkbox 
+                        <div className="flex items-start gap-3">
+                          <Checkbox
                             checked={selectedHabits.includes(habit.id)}
                             onChange={() => handleHabitToggle(habit.id)}
+                            className="mt-1 data-[state=checked]:bg-accent data-[state=checked]:border-accent"
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">{habit.title}</h3>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{habit.points} pts</Badge>
-                                <Badge variant="outline">{habit.frequency}</Badge>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground leading-tight">
+                                {habit.title}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Star className="w-3 h-3 text-secondary" />
+                                <span className="text-sm font-semibold text-secondary">
+                                  {habit.points}
+                                </span>
                               </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">{habit.description}</p>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {habit.description}
+                            </p>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getCategoryColor(habit.category)}`}
+                              >
+                                {habit.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+                                {habit.frequency}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -290,26 +483,49 @@ export const HabitSelectionPage = () => {
                   {getHabitsByDifficulty("medium").map((habit) => (
                     <Card 
                       key={habit.id} 
-                      className={`gaming-card cursor-pointer transition-all hover:scale-105 ${
-                        selectedHabits.includes(habit.id) ? 'ring-2 ring-primary' : ''
+                      className={`gaming-card cursor-pointer transition-all hover:scale-[1.02] ${
+                        selectedHabits.includes(habit.id)
+                          ? 'border-accent bg-accent/5'
+                          : 'border-border hover:border-primary/30'
                       }`}
                       onClick={() => handleHabitToggle(habit.id)}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Checkbox 
+                        <div className="flex items-start gap-3">
+                          <Checkbox
                             checked={selectedHabits.includes(habit.id)}
                             onChange={() => handleHabitToggle(habit.id)}
+                            className="mt-1 data-[state=checked]:bg-accent data-[state=checked]:border-accent"
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">{habit.title}</h3>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{habit.points} pts</Badge>
-                                <Badge variant="outline">{habit.frequency}</Badge>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground leading-tight">
+                                {habit.title}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Star className="w-3 h-3 text-secondary" />
+                                <span className="text-sm font-semibold text-secondary">
+                                  {habit.points}
+                                </span>
                               </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">{habit.description}</p>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {habit.description}
+                            </p>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getCategoryColor(habit.category)}`}
+                              >
+                                {habit.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+                                {habit.frequency}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -323,26 +539,49 @@ export const HabitSelectionPage = () => {
                   {getHabitsByDifficulty("soft").map((habit) => (
                     <Card 
                       key={habit.id} 
-                      className={`gaming-card cursor-pointer transition-all hover:scale-105 ${
-                        selectedHabits.includes(habit.id) ? 'ring-2 ring-primary' : ''
+                      className={`gaming-card cursor-pointer transition-all hover:scale-[1.02] ${
+                        selectedHabits.includes(habit.id)
+                          ? 'border-accent bg-accent/5'
+                          : 'border-border hover:border-primary/30'
                       }`}
                       onClick={() => handleHabitToggle(habit.id)}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Checkbox 
+                        <div className="flex items-start gap-3">
+                          <Checkbox
                             checked={selectedHabits.includes(habit.id)}
                             onChange={() => handleHabitToggle(habit.id)}
+                            className="mt-1 data-[state=checked]:bg-accent data-[state=checked]:border-accent"
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">{habit.title}</h3>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{habit.points} pts</Badge>
-                                <Badge variant="outline">{habit.frequency}</Badge>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground leading-tight">
+                                {habit.title}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Star className="w-3 h-3 text-secondary" />
+                                <span className="text-sm font-semibold text-secondary">
+                                  {habit.points}
+                                </span>
                               </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">{habit.description}</p>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {habit.description}
+                            </p>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getCategoryColor(habit.category)}`}
+                              >
+                                {habit.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+                                {habit.frequency}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -356,26 +595,49 @@ export const HabitSelectionPage = () => {
                   {getHabitsByDifficulty("custom").map((habit) => (
                     <Card 
                       key={habit.id} 
-                      className={`gaming-card cursor-pointer transition-all hover:scale-105 ${
-                        selectedHabits.includes(habit.id) ? 'ring-2 ring-primary' : ''
+                      className={`gaming-card cursor-pointer transition-all hover:scale-[1.02] ${
+                        selectedHabits.includes(habit.id)
+                          ? 'border-accent bg-accent/5'
+                          : 'border-border hover:border-primary/30'
                       }`}
                       onClick={() => handleHabitToggle(habit.id)}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Checkbox 
+                        <div className="flex items-start gap-3">
+                          <Checkbox
                             checked={selectedHabits.includes(habit.id)}
                             onChange={() => handleHabitToggle(habit.id)}
+                            className="mt-1 data-[state=checked]:bg-accent data-[state=checked]:border-accent"
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">{habit.title}</h3>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline">{habit.points} pts</Badge>
-                                <Badge variant="outline">{habit.frequency}</Badge>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground leading-tight">
+                                {habit.title}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Star className="w-3 h-3 text-secondary" />
+                                <span className="text-sm font-semibold text-secondary">
+                                  {habit.points}
+                                </span>
                               </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">{habit.description}</p>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {habit.description}
+                            </p>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getCategoryColor(habit.category)}`}
+                              >
+                                {habit.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+                                {habit.frequency}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -387,18 +649,77 @@ export const HabitSelectionPage = () => {
           </TabsContent>
         </Tabs>
 
+        {/* No Results State */}
+        {filteredHabits.length === 0 && (
+          <Card className="gaming-card">
+            <CardContent className="p-12 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                <Search className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No habits found</h3>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                Try adjusting your search terms or filters to find the habits you're looking for.
+              </p>
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="mt-4"
+              >
+                Clear all filters
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Save Button */}
-        <div className="sticky bottom-6">
-          <Button 
-            onClick={handleSaveHabits}
-            variant="gaming" 
-            size="lg" 
-            className="w-full"
-            disabled={!isValidSelection() || saving}
-          >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            {saving ? "Saving..." : `Save Habits (${selectedHabits.length} selected, ${getTotalPoints()} points)`}
-          </Button>
+        <div className="sticky bottom-6 space-y-2">
+          <div className="flex gap-2">
+            <Dialog open={showAddHabit} onOpenChange={setShowAddHabit}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex-1">Add Habit</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add a new habit</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Input placeholder="Title" value={newHabit.title} onChange={(e) => setNewHabit({ ...newHabit, title: e.target.value })} />
+                  <Textarea placeholder="Description" value={newHabit.description} onChange={(e) => setNewHabit({ ...newHabit, description: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input type="number" placeholder="Points" value={newHabit.points} onChange={(e) => setNewHabit({ ...newHabit, points: Number(e.target.value) })} />
+                    <Input placeholder="Category" value={newHabit.category} onChange={(e) => setNewHabit({ ...newHabit, category: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="Frequency (daily/weekly)" value={newHabit.frequency} onChange={(e) => setNewHabit({ ...newHabit, frequency: e.target.value })} />
+                    <Input placeholder="Set (hard/medium/soft/custom)" value={newHabit.default_set} onChange={(e) => setNewHabit({ ...newHabit, default_set: e.target.value })} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleAddHabit}>Save to Pool</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button 
+              onClick={handleSaveHabits}
+              variant="default" 
+              size="lg" 
+              className="flex-1 h-12 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+              disabled={!isValidSelection() || saving}
+            >
+              {saving ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </div>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Save Habits ({selectedHabits.length} selected, {getTotalPoints()} points)
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

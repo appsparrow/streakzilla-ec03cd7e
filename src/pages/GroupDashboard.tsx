@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Leaderboard } from "@/components/Leaderboard";
+import { GroupCheckinsFeed } from "@/components/GroupCheckinsFeed";
 import { 
   Calendar, 
   Users, 
@@ -19,6 +20,8 @@ import {
   Trophy,
   ArrowLeft
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 
 interface Group {
   id: string;
@@ -55,6 +58,9 @@ export const GroupDashboard = () => {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [userMembership, setUserMembership] = useState<GroupMember | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userHabits, setUserHabits] = useState<{ id: string; title: string; points: number; }[]>([]);
+  const [habitsLoading, setHabitsLoading] = useState(false);
+  const [todayCompleted, setTodayCompleted] = useState<string[]>([]);
 
   useEffect(() => {
     if (groupId && user) {
@@ -74,24 +80,56 @@ export const GroupDashboard = () => {
       if (groupError) throw groupError;
       setGroup(groupData);
 
-      // Fetch group members
-      const { data: membersData, error: membersError } = await supabase
-        .from("group_members")
-        .select(`
-          *,
-          profiles (
-            display_name,
-            avatar_url
-          )
-        `)
-        .eq("group_id", groupId);
+      // Fetch group members (use RPC if available)
+      const { data: rpcMembers, error: rpcErr } = await (supabase as any).rpc('get_group_members', { p_group_id: groupId });
+      if (!rpcErr && rpcMembers) {
+        const normalized = (rpcMembers as any[]).map(m => ({
+          id: m.id,
+          role: m.role,
+          joined_at: m.joined_at,
+          lives_remaining: m.lives_remaining,
+          total_points: m.total_points,
+          current_streak: m.current_streak,
+          restart_count: m.restart_count,
+          is_out: m.is_out,
+          user_id: m.user_id,
+          profiles: { display_name: m.display_name, avatar_url: m.avatar_url },
+        }));
+        setMembers(normalized as any);
+        const currentUserMembership = normalized.find((m: any) => m.user_id === user?.id);
+        setUserMembership((currentUserMembership || null) as any);
+      } else {
+        // Fallback to direct table if RPC not available
+        const { data: membersData, error: membersError } = await supabase
+          .from("group_members")
+          .select(`
+            *,
+            profiles (
+              display_name,
+              avatar_url
+            )
+          `)
+          .eq("group_id", groupId);
+        if (membersError) throw membersError;
+        setMembers(membersData || []);
+        const currentUserMembership = membersData?.find(m => (m as any).user_id === user?.id);
+        setUserMembership((currentUserMembership || null) as any);
+      }
 
-      if (membersError) throw membersError;
-      setMembers(membersData || []);
-
-      // Find current user's membership
-      const currentUserMembership = membersData?.find(m => m.user_id === user?.id);
-      setUserMembership(currentUserMembership || null);
+      // Fetch current user's selected habits
+      if (groupId && user?.id) {
+        setHabitsLoading(true);
+        const { data: uhData, error: uhErr } = await (supabase as any).rpc('get_user_selected_habits', {
+          p_group_id: groupId,
+          p_user_id: user.id,
+        });
+        if (!uhErr && uhData) {
+          setUserHabits((uhData as any[]).map(h => ({ id: h.habit_id, title: h.title, points: h.points })));
+        } else {
+          setUserHabits([]);
+        }
+        setHabitsLoading(false);
+      }
 
     } catch (error: any) {
       toast({
@@ -150,6 +188,30 @@ export const GroupDashboard = () => {
     const diffTime = today.getTime() - startDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
     return Math.max(1, diffDays);
+  };
+
+  const daysFromStart = () => {
+    if (!group?.start_date) return 0;
+    const start = new Date(group.start_date);
+    const today = new Date();
+    return Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  };
+  const canEditHabits = daysFromStart() <= 3;
+
+  const toggleToday = (id: string) => {
+    setTodayCompleted(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const markAllDone = () => {
+    setTodayCompleted(userHabits.map(h => h.id));
+  };
+  const goToCheckIn = () => {
+    // carry selected ids via state
+    navigate(`/groups/${groupId}/checkin`, { state: { preselected: todayCompleted } as any });
+  };
+  const handleSlide = (val: number[]) => {
+    const v = Math.min(100, Math.max(0, val?.[0] ?? 0));
+    const count = Math.round((v / 100) * userHabits.length);
+    setTodayCompleted(userHabits.slice(0, count).map(h => h.id));
   };
 
   if (loading) {
@@ -214,7 +276,7 @@ export const GroupDashboard = () => {
             <CardContent className="p-4 text-center">
               <Users className="w-6 h-6 mx-auto mb-2 text-success" />
               <p className="text-2xl font-bold text-success">{members.length}</p>
-              <p className="text-sm text-muted-foreground">Members</p>
+              <p className="text-sm text-muted-foreground">Streakmates</p>
             </CardContent>
           </Card>
 
@@ -222,7 +284,7 @@ export const GroupDashboard = () => {
             <CardContent className="p-4 text-center">
               <Trophy className="w-6 h-6 mx-auto mb-2 text-energy" />
               <p className="text-2xl font-bold text-energy">{userMembership?.total_points || 0}</p>
-              <p className="text-sm text-muted-foreground">Your Points</p>
+              <p className="text-sm text-muted-foreground">Your Scales</p>
             </CardContent>
           </Card>
 
@@ -251,24 +313,39 @@ export const GroupDashboard = () => {
                   <p className="text-2xl font-bold text-energy">{userMembership.current_streak} days</p>
                 </div>
                 <div className="space-y-1 text-right">
-                  <p className="text-sm text-muted-foreground">Restarts</p>
-                  <p className="text-lg font-semibold">{userMembership.restart_count}</p>
+                  <p className="text-sm text-muted-foreground">Total Scales</p>
+                  <p className="text-lg font-semibold">{userMembership.total_points}</p>
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Badge variant={userMembership.role === 'admin' ? 'default' : 'secondary'}>
-                  {userMembership.role === 'admin' ? 'Admin' : 'Member'}
-                </Badge>
-                <Badge variant="outline">
-                  {group.mode} Mode
-                </Badge>
-                {group.duration_days && (
-                  <Badge variant="outline">
-                    {group.duration_days} Days
-                  </Badge>
+              
+              <div className="space-y-2 pt-4">
+                <p className="text-sm font-medium text-foreground">What did you do today?</p>
+                {userHabits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Select habits to start tracking.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {userHabits.map(h => (
+                      <div key={h.id} className="flex items-center gap-2 p-3 rounded bg-muted/20 border border-border">
+                        <Checkbox checked={todayCompleted.includes(h.id)} onCheckedChange={() => toggleToday(h.id)} />
+                        <div className="flex-1 text-sm">{h.title}</div>
+                        <div className="text-xs text-secondary font-semibold">{h.points} scales</div>
+                      </div>
+                    ))}
+                    <div className="space-y-2 pt-2">
+                      <div className="text-xs text-muted-foreground">Slide to mark all done</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Slider defaultValue={[0]} max={100} step={5} onValueChange={handleSlide} className="w-full" />
+                        </div>
+                        <Button size="sm" onClick={goToCheckIn} disabled={todayCompleted.length === 0}>Check In</Button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
+
+              
             </CardContent>
           </Card>
         )}
@@ -277,8 +354,8 @@ export const GroupDashboard = () => {
         <Tabs defaultValue="leaderboard" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-            <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="members">Streakmates</TabsTrigger>
+            <TabsTrigger value="checkins">Check-ins</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -293,7 +370,7 @@ export const GroupDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate(`/groups/${groupId}/members/${(member as any).user_id}`)}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                         {member.profiles?.display_name?.charAt(0) || "?"}
@@ -301,7 +378,7 @@ export const GroupDashboard = () => {
                       <div>
                         <p className="font-semibold">{member.profiles?.display_name || "Unknown"}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>{member.total_points} pts</span>
+                          <span>{member.total_points} scales</span>
                           <span>•</span>
                           <span>{member.current_streak} streak</span>
                           <span>•</span>
@@ -321,6 +398,10 @@ export const GroupDashboard = () => {
                 ))}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="checkins" className="space-y-4">
+            <GroupCheckinsFeed groupId={groupId as string} />
           </TabsContent>
 
           <TabsContent value="chat">
@@ -357,7 +438,7 @@ export const GroupDashboard = () => {
                     <p>Code: {group.code}</p>
                     <p>Mode: {group.mode}</p>
                     <p>Duration: {group.duration_days} days</p>
-                    <p>Started: {new Date(group.start_date).toLocaleDateString()}</p>
+                    <p>Started: {new Date(group.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                     {daysRemaining > 0 && (
                       <p>Days remaining: {daysRemaining}</p>
                     )}

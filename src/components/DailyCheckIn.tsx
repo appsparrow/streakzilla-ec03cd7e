@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Camera, Upload, Star, Zap, Target, ArrowLeft } from 'lucide-react';
+import { Slider } from "@/components/ui/slider";
+import { Camera, Upload, Star, Zap, Target, ArrowLeft, X } from 'lucide-react';
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,37 +49,36 @@ export const DailyCheckIn = () => {
     }
   }, [groupId, user]);
 
+  useEffect(() => {
+    // preselect if state passed
+    try {
+      const nav = (window as any).history?.state?.usr;
+      if (nav?.preselected && Array.isArray(nav.preselected)) {
+        setCompletedHabits(nav.preselected);
+      }
+    } catch {}
+  }, []);
+
   const fetchUserHabits = async () => {
     try {
       const { data, error } = await supabase
-        .from('user_habits')
-        .select(`
-          habit_id,
-          habits (
-            id,
-            title,
-            points,
-            category
-          )
-        `)
-        .eq('group_id', groupId)
-        .eq('user_id', user?.id);
+        .rpc('get_user_selected_habits', { p_group_id: groupId, p_user_id: user?.id });
 
       if (error) throw error;
 
-      const userHabits = data?.map(item => ({
+      const userHabits = (data || []).map((item: any) => ({
         id: item.habit_id,
-        title: item.habits.title,
-        points: item.habits.points,
-        category: item.habits.category
-      })) || [];
+        title: item.title,
+        points: item.points,
+        category: item.category
+      }));
 
       setHabits(userHabits);
     } catch (error) {
       console.error('Error fetching habits:', error);
       toast({
         title: "Error",
-        description: "Failed to load your habits",
+        description: "Failed to load your powers",
         variant: "destructive",
       });
     }
@@ -117,6 +117,26 @@ export const DailyCheckIn = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setPhoto(file);
       const reader = new FileReader();
       reader.onload = () => setPhotoPreview(reader.result as string);
@@ -127,8 +147,8 @@ export const DailyCheckIn = () => {
   const handleSubmit = async () => {
     if (completedHabits.length === 0) {
       toast({
-        title: "No habits selected",
-        description: "Please select at least one habit to check in.",
+        title: "No powers selected",
+        description: "Please select at least one power to check in.",
         variant: "destructive",
       });
       return;
@@ -152,7 +172,7 @@ export const DailyCheckIn = () => {
       
       toast({
         title: "Check-in Complete! 🎉",
-        description: `You earned ${(data as any)?.points_earned || 0} points! Current streak: ${(data as any)?.current_streak || 0}`,
+        description: `You earned ${(data as any)?.points_earned || 0} scales! Current streak: ${(data as any)?.current_streak || 0}`,
       });
 
       // Redirect back to group dashboard after a delay
@@ -162,11 +182,26 @@ export const DailyCheckIn = () => {
 
     } catch (error: any) {
       console.error('Error checking in:', error);
-      toast({
-        title: "Check-in Failed",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Handle specific "already checked in" error
+      if (error.code === 'P0001' && error.message?.includes('already checked in')) {
+        toast({
+          title: "Already Checked In",
+          description: "You've already completed your check-in for today! Come back tomorrow.",
+          variant: "default",
+        });
+        
+        // Redirect back to group dashboard
+        setTimeout(() => {
+          navigate(`/groups/${groupId}`);
+        }, 2000);
+      } else {
+        toast({
+          title: "Check-in Failed",
+          description: error.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -228,7 +263,7 @@ export const DailyCheckIn = () => {
                 <h3 className="font-semibold text-foreground">Today's Progress</h3>
                 <Badge variant="secondary" className="bg-secondary/20 text-secondary">
                   <Zap className="w-3 h-3 mr-1" />
-                  {totalPoints} points
+                  {totalPoints} scales
                 </Badge>
               </div>
               
@@ -236,7 +271,7 @@ export const DailyCheckIn = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Completion</span>
                   <span className="text-foreground font-medium">
-                    {completedHabits.length}/{habits.length} habits
+                    {completedHabits.length}/{habits.length} powers
                   </span>
                 </div>
                 <Progress value={completionPercentage} className="h-3" />
@@ -250,7 +285,7 @@ export const DailyCheckIn = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <Target className="w-5 h-5 text-primary" />
-              Your Habits
+              Your Powers
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -286,12 +321,40 @@ export const DailyCheckIn = () => {
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       <Star className="w-3 h-3 inline mr-1" />
-                      {habit.points} pts
+                      {habit.points} scales
                     </span>
                   </div>
                 </div>
               </div>
             ))}
+            
+            {/* Swipe Slider for Quick Selection */}
+            {habits.length > 0 && (
+              <div className="pt-4 border-t border-border">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">Quick Select</span>
+                    <span className="text-sm text-muted-foreground">
+                      {completedHabits.length}/{habits.length} selected
+                    </span>
+                  </div>
+                  <Slider
+                    value={[completedHabits.length]}
+                    max={habits.length}
+                    step={1}
+                    onValueChange={(value) => {
+                      const numToSelect = value[0];
+                      setCompletedHabits(habits.slice(0, numToSelect).map(h => h.id));
+                    }}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>None</span>
+                    <span>All</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -305,37 +368,55 @@ export const DailyCheckIn = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {photoPreview ? (
-              <div className="relative">
+              <div className="relative group">
                 <img
                   src={photoPreview}
                   alt="Progress photo"
                   className="w-full h-48 object-cover rounded-lg"
                 />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setPhoto(null);
-                    setPhotoPreview(null);
-                  }}
-                  className="absolute top-2 right-2"
-                >
-                  Remove
-                </Button>
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setPhoto(null);
+                      setPhotoPreview(null);
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remove Photo
+                  </Button>
+                </div>
+                <div className="absolute top-2 right-2">
+                  <Badge variant="secondary" className="bg-black/50 text-white">
+                    {photo && `${(photo.size / 1024 / 1024).toFixed(1)}MB`}
+                  </Badge>
+                </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors">
-                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">
-                  Click to upload progress photo
-                </span>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-              </label>
+              <div className="space-y-4">
+                <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors group">
+                  <Upload className="w-8 h-8 text-muted-foreground mb-2 group-hover:text-primary transition-colors" />
+                  <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                    Click to upload progress photo
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1">
+                    Max 5MB • JPG, PNG, GIF
+                  </span>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                  />
+                </label>
+                
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Share your progress with the streak! Photos help motivate everyone.
+                  </p>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -369,7 +450,7 @@ export const DailyCheckIn = () => {
           ) : (
             <>
               <Zap className="w-5 h-5 mr-2" />
-              Complete Check-In ({totalPoints} points)
+              Complete Check-In ({totalPoints} scales)
             </>
           )}
         </Button>

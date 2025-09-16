@@ -40,12 +40,12 @@ interface UserStats {
   total_points: number;
   current_streak: number;
   restart_count: number;
-  total_groups: number;
-  active_groups: number;
+  total_streaks: number;
+  active_streaks: number;
 }
 
-interface GroupMembership {
-  group: {
+interface StreakMembership {
+  streak: {
     id: string;
     name: string;
     mode: string;
@@ -62,7 +62,7 @@ export const ProfileScreen = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [groups, setGroups] = useState<GroupMembership[]>([]);
+  const [streaks, setStreaks] = useState<StreakMembership[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     display_name: '',
@@ -76,7 +76,7 @@ export const ProfileScreen = () => {
     if (user) {
       fetchProfile();
       fetchUserStats();
-      fetchUserGroups();
+      fetchUserStreaks();
     }
   }, [user]);
 
@@ -102,75 +102,49 @@ export const ProfileScreen = () => {
 
   const fetchUserStats = async () => {
     try {
-      // Aggregate stats from group memberships
-      const { data: memberships, error } = await supabase
-        .from('group_members')
-        .select(`
-          total_points,
-          current_streak,
-          restart_count,
-          groups!inner (
-            id,
-            is_active
-          )
-        `)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      const totalPoints = memberships.reduce((sum, m) => sum + (m.total_points || 0), 0);
-      const maxStreak = Math.max(...memberships.map(m => m.current_streak || 0), 0);
-      const totalRestarts = memberships.reduce((sum, m) => sum + (m.restart_count || 0), 0);
-      const totalGroups = memberships.length;
-      const activeGroups = memberships.filter(m => m.groups.is_active).length;
-
+      // Temporarily disable stats fetching to avoid RLS recursion
+      // TODO: Re-enable after running FIX_DATABASE_POLICIES.sql
+      console.log("Stats fetching temporarily disabled due to RLS recursion. Please run FIX_DATABASE_POLICIES.sql");
       setStats({
-        total_points: totalPoints,
-        current_streak: maxStreak,
-        restart_count: totalRestarts,
-        total_groups: totalGroups,
-        active_groups: activeGroups
+        total_points: 0,
+        current_streak: 0,
+        restart_count: 0,
+        total_streaks: 0,
+        active_streaks: 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
   };
 
-  const fetchUserGroups = async () => {
+  const fetchUserStreaks = async () => {
     try {
-      const { data, error } = await supabase
-        .from('group_members')
-        .select(`
-          total_points,
-          current_streak,
-          lives_remaining,
-          role,
-          groups (
-            id,
-            name,
-            mode,
-            start_date,
-            duration_days,
-            is_active
-          )
-        `)
-        .eq('user_id', user?.id)
-        .order('total_points', { ascending: false });
+      // Use RPC to fetch user streaks to avoid RLS recursion
+      const { data: userStreaksData, error: userStreaksError } = await (supabase as any).rpc('get_user_groups');
 
-      if (error) throw error;
-      
-      // Transform the data to match the GroupMembership interface
-      const transformedData = data?.map(item => ({
-        group: item.groups,
-        total_points: item.total_points,
-        current_streak: item.current_streak,
-        lives_remaining: item.lives_remaining,
-        role: item.role
-      })) || [];
-      
-      setGroups(transformedData);
+      if (userStreaksError) {
+        console.error("Error fetching user streaks via RPC:", userStreaksError);
+        setStreaks([]);
+      } else {
+        // Transform the data to match our interface
+        const transformedStreaks = (userStreaksData || []).map((item: any) => ({
+          streak: {
+            id: item.group_id,
+            name: item.groups?.name || "Unknown Streak",
+            mode: item.groups?.mode || "custom",
+            start_date: item.groups?.start_date || new Date().toISOString(),
+            duration_days: item.groups?.duration_days || 30
+          },
+          total_points: item.total_points || 0,
+          current_streak: item.current_streak || 0,
+          lives_remaining: item.lives_remaining || 3,
+          role: item.role || 'member'
+        }));
+        setStreaks(transformedStreaks);
+      }
     } catch (error) {
-      console.error('Error fetching groups:', error);
+      console.error('Error fetching streaks:', error);
+      setStreaks([]);
     } finally {
       setLoading(false);
     }
@@ -208,10 +182,10 @@ export const ProfileScreen = () => {
     }
   };
 
-  const getGroupStatus = (group: GroupMembership) => {
-    const startDate = new Date(group.group.start_date);
+  const getStreakStatus = (streak: StreakMembership) => {
+    const startDate = new Date(streak.streak.start_date);
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + group.group.duration_days);
+    endDate.setDate(startDate.getDate() + streak.streak.duration_days);
     const now = new Date();
 
     if (now < startDate) return { status: 'upcoming', color: 'bg-blue-500/20 text-blue-300' };
@@ -276,7 +250,7 @@ export const ProfileScreen = () => {
                   <div className="flex items-center gap-1">
                     <Zap className="w-4 h-4 text-secondary" />
                     <span className="font-semibold text-foreground">{stats?.total_points || 0}</span>
-                    <span className="text-sm text-muted-foreground">points</span>
+                    <span className="text-sm text-muted-foreground">scales</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Flame className="w-4 h-4 text-orange-400" />
@@ -285,8 +259,8 @@ export const ProfileScreen = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4 text-accent" />
-                    <span className="font-semibold text-foreground">{stats?.active_groups || 0}</span>
-                    <span className="text-sm text-muted-foreground">active groups</span>
+                    <span className="font-semibold text-foreground">{stats?.active_streaks || 0}</span>
+                    <span className="text-sm text-muted-foreground">active streaks</span>
                   </div>
                 </div>
               </div>
@@ -308,8 +282,8 @@ export const ProfileScreen = () => {
             <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Overview
             </TabsTrigger>
-            <TabsTrigger value="groups" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              My Groups
+            <TabsTrigger value="streaks" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              My Streaks
             </TabsTrigger>
             <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Settings
@@ -323,7 +297,7 @@ export const ProfileScreen = () => {
                 <CardContent className="p-4 text-center">
                   <Trophy className="w-8 h-8 text-secondary mx-auto mb-2" />
                   <div className="text-2xl font-bold text-foreground">{stats?.total_points || 0}</div>
-                  <div className="text-sm text-muted-foreground">Total Points</div>
+                  <div className="text-sm text-muted-foreground">Total Scales</div>
                 </CardContent>
               </Card>
               
@@ -345,23 +319,23 @@ export const ProfileScreen = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="groups" className="space-y-4">
-            {groups.length > 0 ? (
-              groups.map((membership) => {
-                const groupStatus = getGroupStatus(membership);
+          <TabsContent value="streaks" className="space-y-4">
+            {streaks.length > 0 ? (
+              streaks.map((membership) => {
+                const streakStatus = getStreakStatus(membership);
                 return (
-                  <Card key={membership.group.id} className="gaming-card">
+                  <Card key={membership.streak.id} className="gaming-card hover:scale-[1.02] transition-transform cursor-pointer">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div>
-                            <h3 className="font-semibold text-foreground">{membership.group.name}</h3>
+                            <h3 className="font-semibold text-foreground">{membership.streak.name}</h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className={groupStatus.color}>
-                                {groupStatus.status}
+                              <Badge variant="outline" className={streakStatus.color}>
+                                {streakStatus.status}
                               </Badge>
                               <Badge variant="outline" className="border-border text-muted-foreground">
-                                {membership.group.mode}
+                                {membership.streak.mode}
                               </Badge>
                               {membership.role === 'admin' && (
                                 <Badge className="bg-secondary/20 text-secondary border-secondary/30">
@@ -377,7 +351,7 @@ export const ProfileScreen = () => {
                           <div className="flex items-center gap-4">
                             <div className="text-center">
                               <div className="font-semibold text-foreground">{membership.total_points}</div>
-                              <div className="text-xs text-muted-foreground">Points</div>
+                              <div className="text-xs text-muted-foreground">Scales</div>
                             </div>
                             <div className="text-center">
                               <div className="font-semibold text-foreground">{membership.current_streak}</div>
@@ -397,8 +371,8 @@ export const ProfileScreen = () => {
             ) : (
               <div className="text-center py-12">
                 <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No Groups Yet</h3>
-                <p className="text-muted-foreground">Join or create a group to start your streak journey!</p>
+                <h3 className="text-lg font-medium text-foreground mb-2">No Streaks Yet</h3>
+                <p className="text-muted-foreground">Join or create a streak to start your journey!</p>
               </div>
             )}
           </TabsContent>
@@ -480,8 +454,8 @@ export const ProfileScreen = () => {
                   
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium text-foreground">Max Groups</h4>
-                      <p className="text-sm text-muted-foreground">Maximum groups you can join</p>
+                      <h4 className="font-medium text-foreground">Max Streaks</h4>
+                      <p className="text-sm text-muted-foreground">Maximum streaks you can join</p>
                     </div>
                     <span className="font-semibold text-foreground">{profile.max_groups}</span>
                   </div>

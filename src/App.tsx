@@ -13,6 +13,9 @@ import { JoinGroup } from "./pages/JoinGroup";
 import { GroupDashboard } from "./pages/GroupDashboard";
 import { DailyCheckIn } from "./components/DailyCheckIn";
 import { HabitSelectionPage } from "./pages/HabitSelectionPage";
+import { Profile } from "./pages/Profile";
+import { Settings } from "./pages/Settings";
+import { MemberDetail } from "./pages/MemberDetail";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +76,21 @@ const App = () => (
           <Route path="/groups/:groupId/habits" element={
             <ProtectedRoute>
               <HabitSelectionPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/groups/:groupId/members/:userId" element={
+            <ProtectedRoute>
+              <MemberDetail />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />

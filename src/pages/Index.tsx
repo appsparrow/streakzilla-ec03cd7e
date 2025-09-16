@@ -14,7 +14,8 @@ import {
   Calendar,
   Settings,
   LogOut,
-  UserCircle
+  UserCircle,
+  ArrowRight
 } from "lucide-react";
 
 interface UserGroup {
@@ -71,31 +72,61 @@ const Index = () => {
         .single();
 
       if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
+        console.error("Profile error:", profileError);
+        // If profile doesn't exist, create a default one
+        if (profileError.code === 'PGRST116') {
+          const { data: newProfile, error: createError } = await supabase
+            .from("profiles")
+            .insert({
+              id: user?.id,
+              display_name: user?.email?.split('@')[0] || 'User',
+              full_name: user?.user_metadata?.full_name || '',
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error("Error creating profile:", createError);
+            setProfile(null);
+          } else {
+            setProfile(newProfile);
+          }
+        } else {
+          throw profileError;
+        }
+      } else {
+        setProfile(profileData);
       }
 
-      setProfile(profileData);
-
-      // Fetch user's groups
-      const { data: groupsData, error: groupsError } = await supabase
-        .from("group_members")
-        .select(`
-          *,
-          groups (
-            id,
-            name,
-            code,
-            start_date,
-            duration_days,
-            mode,
-            is_active
-          )
-        `)
-        .eq("user_id", user?.id);
-
-      if (groupsError) throw groupsError;
-
-      setUserGroups(groupsData || []);
+      // Fetch user's groups via RPC (requires FIX_DATABASE_POLICIES.sql)
+      try {
+        const { data: rpcGroups, error: rpcErr } = await supabase.rpc('get_user_groups');
+        if (rpcErr) {
+          console.error('get_user_groups error:', rpcErr);
+          setUserGroups([]);
+        } else {
+          const combined = (rpcGroups || []).map((g: any) => ({
+            group_id: g.group_id,
+            total_points: g.total_points,
+            current_streak: g.current_streak,
+            lives_remaining: g.lives_remaining,
+            role: g.role,
+            groups: {
+              id: g.group_id,
+              name: g.name,
+              code: g.code,
+              start_date: g.start_date,
+              duration_days: g.duration_days,
+              mode: g.mode,
+              is_active: g.is_active,
+            },
+          }));
+          setUserGroups(combined);
+        }
+      } catch (err) {
+        console.error('Error fetching groups via RPC:', err);
+        setUserGroups([]);
+      }
     } catch (error: any) {
       console.error("Error fetching user data:", error);
       toast({
@@ -155,158 +186,58 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate("/profile")}
+              className="hover:bg-muted/50"
+            >
               <UserCircle className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate("/settings")}
+              className="hover:bg-muted/50"
+            >
               <Settings className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleSignOut}
+              className="hover:bg-muted/50"
+            >
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="gaming-card">
-            <CardContent className="p-4 text-center">
-              <Trophy className="w-6 h-6 mx-auto mb-2 text-energy" />
-              <p className="text-2xl font-bold text-energy">{getTotalPoints()}</p>
-              <p className="text-sm text-muted-foreground">Total Points</p>
-            </CardContent>
-          </Card>
-
-          <Card className="gaming-card">
-            <CardContent className="p-4 text-center">
-              <Flame className="w-6 h-6 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold gradient-text">{getBestStreak()}</p>
-              <p className="text-sm text-muted-foreground">Best Streak</p>
-            </CardContent>
-          </Card>
-
-          <Card className="gaming-card">
-            <CardContent className="p-4 text-center">
-              <Users className="w-6 h-6 mx-auto mb-2 text-success" />
-              <p className="text-2xl font-bold text-success">{getActiveGroups()}</p>
-              <p className="text-sm text-muted-foreground">Active Groups</p>
-            </CardContent>
-          </Card>
-
-          <Card className="gaming-card">
-            <CardContent className="p-4 text-center">
-              <Calendar className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-2xl font-bold">{profile?.max_groups || 1}</p>
-              <p className="text-sm text-muted-foreground">Max Groups</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="gaming-card hover:scale-105 transition-transform cursor-pointer" onClick={() => navigate("/create-group")}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                Create New Group
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Start a new challenge with friends</p>
-            </CardContent>
-          </Card>
-
-          <Card className="gaming-card hover:scale-105 transition-transform cursor-pointer" onClick={() => navigate("/join-group")}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Join Group
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Enter a group code to join a challenge</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* User Groups */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Your Groups</h2>
-            <Badge variant="outline">
-              {profile?.subscription_status === 'paid' ? 'Premium' : 'Free'}
-            </Badge>
-          </div>
-
-          {userGroups.length === 0 ? (
-            <Card className="gaming-card">
-              <CardContent className="p-8 text-center">
-                <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No groups yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your first group or join an existing one to start your journey
-                </p>
-                <div className="flex gap-2 justify-center">
-                  <Button variant="gaming" onClick={() => navigate("/create-group")}>
-                    Create Group
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate("/join-group")}>
-                    Join Group
-                  </Button>
+        {/* Group List */}
+        <Card className="gaming-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Your Streaks
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {userGroups.length === 0 && (
+              <p className="text-sm text-muted-foreground">You are not part of any streak yet. Use Profile to create or join.</p>
+            )}
+            {userGroups.slice(0, 2).map((g: any) => (
+              <div key={g.group_id} className="p-3 rounded border border-border bg-muted/20 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate(`/groups/${g.group_id}`)} role="button" aria-label={`Open ${g.groups?.name}`}>
+                <div>
+                  <div className="font-semibold">{g.groups?.name}</div>
+                  <div className="text-xs text-muted-foreground">Code: {g.groups?.code}</div>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {userGroups.map((userGroup) => (
-                <Card 
-                  key={userGroup.id} 
-                  className="gaming-card hover:scale-105 transition-transform cursor-pointer"
-                  onClick={() => navigate(`/groups/${userGroup.groups.id}`)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        {userGroup.groups.name}
-                      </CardTitle>
-                      <div className="flex gap-2">
-                        {userGroup.role === 'admin' && (
-                          <Badge variant="default">Admin</Badge>
-                        )}
-                        <Badge variant="outline">{userGroup.groups.mode}</Badge>
-                        {userGroup.is_out && (
-                          <Badge variant="destructive">Out</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-energy">{userGroup.total_points}</p>
-                        <p className="text-muted-foreground">Points</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-primary">{userGroup.current_streak}</p>
-                        <p className="text-muted-foreground">Streak</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-destructive">{userGroup.lives_remaining}</p>
-                        <p className="text-muted-foreground">Lives</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Code: {userGroup.groups.code}</span>
-                      <span>Started: {new Date(userGroup.groups.start_date).toLocaleDateString()}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Optional quick links removed from home as requested */}
       </div>
     </div>
   );
