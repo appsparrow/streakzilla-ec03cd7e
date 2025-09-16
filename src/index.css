@@ -16,9 +16,9 @@
     --popover: 240 6% 12%;
     --popover-foreground: 240 5% 96%;
 
-    /* Gaming Purple-Blue Primary */
-    --primary: 259 94% 65%;
-    --primary-foreground: 240 8% 8%;
+    /* Gaming Purple-Blue Primary - ADA Compliant */
+    --primary: 259 94% 55%;
+    --primary-foreground: 240 5% 96%;
 
     /* Energy Orange Secondary */
     --secondary: 24 95% 58%;

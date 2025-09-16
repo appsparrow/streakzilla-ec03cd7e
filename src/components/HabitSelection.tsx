@@ -1,9 +1,13 @@
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { HabitCard } from "./HabitCard";
-import { ProgressBar } from "./ProgressBar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Flame, Users, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Star, Target, Zap, CheckCircle, Users, Calendar, Flame } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { HabitSearch } from "./HabitSearch";
 
 const allHabits = [
   {
@@ -171,7 +175,7 @@ export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
           </div>
         </div>
         
-        <ProgressBar 
+        <Progress 
           current={Math.min(totalPoints, minRequired)} 
           total={minRequired}
           className="mb-4"
@@ -210,9 +214,9 @@ export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
         <h3 className="text-lg font-semibold text-foreground">
           {activeCategory === "all" ? "All Habits" : `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Habits`}
         </h3>
-        <div className="grid gap-4">
-          {filteredHabits.map((habit) => (
-            <HabitCard
+        <div className="space-y-3">
+          {/* Use HabitSearch component instead */}
+          <HabitSearch
               key={habit.id}
               title={habit.title}
               points={habit.points}
