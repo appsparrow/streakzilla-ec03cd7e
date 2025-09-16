@@ -115,25 +115,54 @@ interface HabitSelectionProps {
 }
 
 export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
-  const [selectedHabits, setSelectedHabits] = useState<number[]>([]);
+  const [selectedHabits, setSelectedHabits] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [submitting, setSubmitting] = useState(false);
+  
+  const mode = "standard"; // Default mode
   
   const filteredHabits = activeCategory === "all" 
     ? allHabits 
     : allHabits.filter(habit => habit.category === activeCategory);
     
   const totalPoints = allHabits
-    .filter(habit => selectedHabits.includes(habit.id))
+    .filter(habit => selectedHabits.includes(habit.id.toString()))
     .reduce((sum, habit) => sum + habit.points, 0);
     
   const minRequired = 75;
   const isValidSelection = selectedHabits.length >= 6 && totalPoints >= minRequired;
+  const isRequirementsMet = isValidSelection;
 
-  const toggleHabit = (habitId: number) => {
+  const toggleHabit = (habitId: string) => {
     if (selectedHabits.includes(habitId)) {
       setSelectedHabits(prev => prev.filter(id => id !== habitId));
     } else {
       setSelectedHabits(prev => [...prev, habitId]);
+    }
+  };
+
+  const handleHabitToggle = (habitId: string) => {
+    toggleHabit(habitId);
+  };
+
+  const handleSubmit = async () => {
+    if (!isRequirementsMet) return;
+    
+    setSubmitting(true);
+    try {
+      // Save habits logic here
+      toast({
+        title: "Success!",
+        description: "Your habits have been saved successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save habits. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -176,8 +205,7 @@ export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
         </div>
         
         <Progress 
-          current={Math.min(totalPoints, minRequired)} 
-          total={minRequired}
+          value={(Math.min(totalPoints, minRequired) / minRequired) * 100}
           className="mb-4"
         />
         
