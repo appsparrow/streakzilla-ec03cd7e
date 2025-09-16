@@ -106,7 +106,11 @@ const allHabits = [
 
 const categories = ["all", "fitness", "hydration", "reading", "mental", "wellness", "creativity"];
 
-export const HabitSelection = () => {
+interface HabitSelectionProps {
+  groupId?: string;
+}
+
+export const HabitSelection = ({ groupId }: HabitSelectionProps = {}) => {
   const [selectedHabits, setSelectedHabits] = useState<number[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   
