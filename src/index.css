@@ -2,41 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Streakzilla Gaming Design System - Energetic & Vibrant */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Gaming Theme Colors */
+    --background: 240 8% 8%;
+    --foreground: 240 5% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 240 6% 12%;
+    --card-foreground: 240 5% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 240 6% 12%;
+    --popover-foreground: 240 5% 96%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Gaming Purple-Blue Primary */
+    --primary: 259 94% 65%;
+    --primary-foreground: 240 8% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Energy Orange Secondary */
+    --secondary: 24 95% 58%;
+    --secondary-foreground: 240 8% 8%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 4% 20%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Success Green Accent */
+    --accent: 142 71% 45%;
+    --accent-foreground: 240 8% 8%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Warning Red for Lives */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 240 5% 96%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 4% 20%;
+    --input: 240 4% 16%;
+    --ring: 259 94% 65%;
 
-    --radius: 0.5rem;
+    /* Gaming Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(259 94% 65%), hsl(249 77% 67%));
+    --gradient-secondary: linear-gradient(135deg, hsl(24 95% 58%), hsl(38 92% 50%));
+    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%), hsl(120 85% 45%));
+    --gradient-energy: linear-gradient(135deg, hsl(259 94% 65%), hsl(24 95% 58%));
+    --gradient-card: linear-gradient(145deg, hsl(240 6% 14%), hsl(240 4% 10%));
+    
+    /* Gaming Shadows */
+    --shadow-glow: 0 0 20px hsl(259 94% 65% / 0.3);
+    --shadow-card: 0 8px 32px hsl(240 8% 4% / 0.5);
+    --shadow-energy: 0 0 30px hsl(24 95% 58% / 0.4);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +115,58 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  /* Gaming UI Components */
+  .gaming-card {
+    @apply bg-gradient-to-br from-card to-muted border border-border rounded-xl shadow-[var(--shadow-card)] backdrop-blur-sm;
+  }
+  
+  .streak-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .energy-glow {
+    box-shadow: var(--shadow-energy);
+  }
+  
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .habit-card {
+    @apply gaming-card p-4 hover:scale-105 transition-all duration-300 cursor-pointer;
+  }
+  
+  .habit-card:hover {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .progress-bar {
+    @apply h-2 rounded-full bg-muted overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: var(--gradient-success);
+  }
+  
+  .pulse-animation {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes pulse-glow {
+    from {
+      box-shadow: 0 0 5px hsl(259 94% 65% / 0.3);
+    }
+    to {
+      box-shadow: 0 0 25px hsl(259 94% 65% / 0.6);
+    }
   }
 }
