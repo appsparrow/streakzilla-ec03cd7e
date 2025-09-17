@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { MemberDetailsModal } from "@/components/MemberDetailsModal";
 
 const mockLeaderboard = [
   {
@@ -119,6 +120,8 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
   const [groupStats, setGroupStats] = useState<GroupStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [groupName, setGroupName] = useState("");
+  const [selectedMember, setSelectedMember] = useState<LeaderboardMember | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (groupId) {
@@ -223,6 +226,11 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
     }
   };
 
+  const handleMemberClick = (member: LeaderboardMember) => {
+    setSelectedMember(member);
+    setModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -270,7 +278,7 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
           <CardContent className="p-4 text-center">
             <Zap className="w-6 h-6 mx-auto mb-2 text-energy" />
             <p className="text-2xl font-bold text-energy">{groupStats?.totalPoints.toLocaleString()}</p>
-            <p className="text-sm text-muted-foreground">Total Scales</p>
+            <p className="text-sm text-muted-foreground">Total Gems</p>
           </CardContent>
         </Card>
         
@@ -300,7 +308,8 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
                 key={member.id} 
                 className={`p-4 rounded-lg bg-gradient-to-r ${getRankColor(member.rank)} ${
                   isCurrentUser ? 'ring-2 ring-primary' : ''
-                }`}
+                } cursor-pointer hover:scale-[1.02] transition-all`}
+                onClick={() => handleMemberClick(member)}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
@@ -321,7 +330,7 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-lg font-bold gradient-text">{member.points.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">+{member.todayPoints} scales today</div>
+                    <div className="text-xs text-muted-foreground">+{member.todayPoints} gems today</div>
                   </div>
                 </div>
               </div>
@@ -355,6 +364,22 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Member Details Modal */}
+      {selectedMember && (
+        <MemberDetailsModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          memberId={selectedMember.id}
+          memberName={selectedMember.name}
+          memberAvatar={selectedMember.avatar}
+          memberRank={selectedMember.rank}
+          memberPoints={selectedMember.points}
+          memberStreak={selectedMember.streak}
+          memberLives={selectedMember.livesRemaining}
+          groupId={groupId || ''}
+        />
+      )}
     </div>
   );
 };

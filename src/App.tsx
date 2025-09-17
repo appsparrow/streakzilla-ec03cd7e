@@ -14,8 +14,11 @@ import { GroupDashboard } from "./pages/GroupDashboard";
 import { DailyCheckIn } from "./components/DailyCheckIn";
 import { HabitSelectionPage } from "./pages/HabitSelectionPage";
 import { Profile } from "./pages/Profile";
-import { Settings } from "./pages/Settings";
+import { CheckIn } from "./pages/CheckIn";
 import { MemberDetail } from "./pages/MemberDetail";
+import { MobileNavigation } from "./components/MobileNavigation";
+import { StreakSettings } from "./pages/StreakSettings";
+import { Settings as AppSettings } from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +40,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
   
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <MobileNavigation />
+    </>
+  );
 };
 
 const App = () => (
@@ -83,14 +91,24 @@ const App = () => (
               <Profile />
             </ProtectedRoute>
           } />
-          <Route path="/settings" element={
+          <Route path="/checkin" element={
             <ProtectedRoute>
-              <Settings />
+              <CheckIn />
             </ProtectedRoute>
           } />
           <Route path="/groups/:groupId/members/:userId" element={
             <ProtectedRoute>
               <MemberDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/groups/:groupId/settings" element={
+            <ProtectedRoute>
+              <StreakSettings />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <AppSettings />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />

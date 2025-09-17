@@ -43,6 +43,7 @@ export const CreateGroup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [groupCreated, setGroupCreated] = useState(false);
   const [groupCode, setGroupCode] = useState("");
+  const [groupId, setGroupId] = useState("");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -69,11 +70,12 @@ export const CreateGroup = () => {
 
       const result = data[0];
       setGroupCode(result.join_code);
+      setGroupId(result.group_id);
       setGroupCreated(true);
 
       toast({
-        title: "Group created!",
-        description: `Your group "${formData.name}" has been created successfully.`,
+        title: "Streak created!",
+        description: `Your streak "${formData.name}" has been created successfully.`,
       });
     } catch (error: any) {
       toast({
@@ -90,7 +92,7 @@ export const CreateGroup = () => {
     navigator.clipboard.writeText(groupCode);
     toast({
       title: "Copied!",
-      description: "Group code copied to clipboard",
+      description: "Streak code copied to clipboard",
     });
   };
 
@@ -102,12 +104,13 @@ export const CreateGroup = () => {
             <div className="w-16 h-16 bg-gradient-to-r from-success to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-white" />
             </div>
-            <CardTitle className="text-2xl">Group Created!</CardTitle>
+            <CardTitle className="text-2xl">Streak Created!</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 text-center">
             <div className="space-y-2">
-              <p className="text-muted-foreground">Your group has been created successfully.</p>
+              <p className="text-muted-foreground">Your streak has been created successfully!</p>
               <p className="font-semibold">Share this code with your friends:</p>
+              <p className="text-sm text-muted-foreground">Next: Select your powers to begin tracking your journey!</p>
             </div>
             
             <div className="flex items-center gap-2 p-4 bg-muted/20 rounded-lg">
@@ -122,6 +125,13 @@ export const CreateGroup = () => {
             <div className="space-y-2">
               <Button 
                 variant="gaming" 
+                className="w-full"
+                onClick={() => navigate(`/groups/${groupId}/habits`)}
+              >
+                Select Powers to Begin Tracking
+              </Button>
+              <Button 
+                variant="outline" 
                 className="w-full"
                 onClick={() => navigate("/")}
               >
@@ -140,7 +150,7 @@ export const CreateGroup = () => {
                   });
                 }}
               >
-                Create Another Group
+                Create Another Streak
               </Button>
             </div>
           </CardContent>
@@ -150,7 +160,7 @@ export const CreateGroup = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4 pb-32">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -162,7 +172,7 @@ export const CreateGroup = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold gradient-text">Create Group</h1>
+          <h1 className="text-3xl font-bold gradient-text">Create Streak</h1>
           <div className="w-20" />
         </div>
 
@@ -170,14 +180,14 @@ export const CreateGroup = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-6 h-6 text-primary" />
-              Group Details
+              Streak Details
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreateGroup} className="space-y-6">
-              {/* Group Name */}
+              {/* Streak Name */}
               <div className="space-y-2">
-                <Label htmlFor="name">Group Name</Label>
+                <Label htmlFor="name">Streak Name</Label>
                 <Input
                   id="name"
                   placeholder="e.g., Fitness Warriors, Study Buddies"
@@ -196,7 +206,7 @@ export const CreateGroup = () => {
                   required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select challenge difficulty" />
+                      <SelectValue placeholder="Select challenge mode" />
                   </SelectTrigger>
                   <SelectContent>
                     {CHALLENGE_MODES.map((mode) => (
@@ -274,7 +284,7 @@ export const CreateGroup = () => {
                 className="w-full" 
                 disabled={isLoading}
               >
-                {isLoading ? "Creating Group..." : "Create Group"}
+                {isLoading ? "Creating Streak..." : "Create Streak"}
               </Button>
             </form>
           </CardContent>
@@ -286,8 +296,9 @@ export const CreateGroup = () => {
             <div className="space-y-2 text-sm text-muted-foreground">
               <p className="font-semibold text-foreground">What happens next?</p>
               <ul className="space-y-1 ml-4">
-                <li>• You'll get a unique group code to share</li>
-                <li>• Friends can join using the code</li>
+                <li>• You'll get a unique streak code to share</li>
+                <li>• Select your powers (habits) to begin tracking</li>
+                <li>• Friends can join using the streak code</li>
                 <li>• Everyone selects their habits before the start date</li>
                 <li>• The challenge begins on your chosen start date</li>
               </ul>

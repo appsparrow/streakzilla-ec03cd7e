@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ShareDialog } from "@/components/ShareDialog";
 import { 
   User, 
   Settings, 
@@ -20,10 +22,11 @@ import {
   X,
   Heart,
   Trophy,
-  Flame
+  Flame,
 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -59,7 +62,8 @@ interface StreakMembership {
 }
 
 export const ProfileScreen = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [streaks, setStreaks] = useState<StreakMembership[]>([]);
@@ -71,6 +75,8 @@ export const ProfileScreen = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -130,10 +136,11 @@ export const ProfileScreen = () => {
         const transformedStreaks = (userStreaksData || []).map((item: any) => ({
           streak: {
             id: item.group_id,
-            name: item.groups?.name || "Unknown Streak",
-            mode: item.groups?.mode || "custom",
-            start_date: item.groups?.start_date || new Date().toISOString(),
-            duration_days: item.groups?.duration_days || 30
+            name: item.name || item.groups?.name || "Unknown Streak",
+            mode: item.mode || item.groups?.mode || "custom",
+            start_date: item.start_date || item.groups?.start_date || new Date().toISOString(),
+            duration_days: item.duration_days || item.groups?.duration_days || 30,
+            code: item.code || item.groups?.code || ""
           },
           total_points: item.total_points || 0,
           current_streak: item.current_streak || 0,
@@ -147,6 +154,20 @@ export const ProfileScreen = () => {
       setStreaks([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to sign out. Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -193,6 +214,11 @@ export const ProfileScreen = () => {
     return { status: 'active', color: 'bg-primary/20 text-primary' };
   };
 
+  const handleShareStreak = (streak: any) => {
+    setCurrentStreak(streak);
+    setShareDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 flex items-center justify-center">
@@ -218,64 +244,57 @@ export const ProfileScreen = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5">
       <div className="container max-w-4xl mx-auto p-6 space-y-6">
-        {/* Profile Header */}
-        <Card className="gaming-card border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-6">
-              <Avatar className="w-24 h-24">
-                <AvatarImage src={profile.avatar_url} />
-                <AvatarFallback className="text-2xl font-bold bg-primary text-primary-foreground">
-                  {profile.display_name?.charAt(0) || profile.full_name?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-foreground">
-                    {profile.display_name || profile.full_name || 'Anonymous User'}
-                  </h1>
-                  {profile.subscription_status === 'paid' && (
-                    <Badge className="bg-secondary/20 text-secondary border-secondary/30">
-                      <Crown className="w-3 h-3 mr-1" />
-                      Pro
-                    </Badge>
-                  )}
+            {/* Profile Header */}
+            <Card className="mobile-card">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  <Avatar className="w-16 h-16 sm:w-20 sm:h-20">
+                    <AvatarImage src={profile.avatar_url} />
+                    <AvatarFallback className="text-lg sm:text-xl font-bold bg-primary text-primary-foreground">
+                      {profile.display_name?.charAt(0) || profile.full_name?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
+                        {profile.display_name || profile.full_name || 'Anonymous User'}
+                      </h1>
+                      {profile.subscription_status === 'paid' && (
+                        <Badge className="bg-secondary/20 text-secondary border-secondary/30 w-fit">
+                          <Crown className="w-3 h-3 mr-1" />
+                          Pro
+                        </Badge>
+                      )}
+                    </div>
+
+                    {profile.bio && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">{profile.bio}</p>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-blue-400" />
+                        <span className="text-sm font-semibold text-foreground">{stats?.total_points || 0}</span>
+                        <span className="text-xs text-blue-400">gems</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Flame className="w-3 h-3 text-blue-400" />
+                        <span className="text-sm font-semibold text-foreground">{stats?.current_streak || 0}</span>
+                        <span className="text-xs text-blue-400">streak</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-3 h-3 text-blue-400" />
+                        <span className="text-sm font-semibold text-foreground">{stats?.active_streaks || 0}</span>
+                        <span className="text-xs text-blue-400">active</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  
                 </div>
-                
-                {profile.bio && (
-                  <p className="text-muted-foreground">{profile.bio}</p>
-                )}
-                
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-4 h-4 text-secondary" />
-                    <span className="font-semibold text-foreground">{stats?.total_points || 0}</span>
-                    <span className="text-sm text-muted-foreground">scales</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Flame className="w-4 h-4 text-orange-400" />
-                    <span className="font-semibold text-foreground">{stats?.current_streak || 0}</span>
-                    <span className="text-sm text-muted-foreground">streak</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4 text-accent" />
-                    <span className="font-semibold text-foreground">{stats?.active_streaks || 0}</span>
-                    <span className="text-sm text-muted-foreground">active streaks</span>
-                  </div>
-                </div>
-              </div>
-              
-              <Button
-                variant="outline"
-                onClick={() => setIsEditing(!isEditing)}
-                className="border-border text-foreground hover:bg-muted/50"
-              >
-                {isEditing ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                {isEditing ? 'Cancel' : 'Edit'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-muted/20">
@@ -297,7 +316,7 @@ export const ProfileScreen = () => {
                 <CardContent className="p-4 text-center">
                   <Trophy className="w-8 h-8 text-secondary mx-auto mb-2" />
                   <div className="text-2xl font-bold text-foreground">{stats?.total_points || 0}</div>
-                  <div className="text-sm text-muted-foreground">Total Scales</div>
+                  <div className="text-sm text-muted-foreground">Total Gems</div>
                 </CardContent>
               </Card>
               
@@ -320,13 +339,21 @@ export const ProfileScreen = () => {
           </TabsContent>
 
           <TabsContent value="streaks" className="space-y-4">
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => navigate('/create-group')} className="bg-blue-600 hover:bg-blue-700">
+                Create Streak
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => navigate('/join-group')}>
+                Join Streak
+              </Button>
+            </div>
             {streaks.length > 0 ? (
               streaks.map((membership) => {
                 const streakStatus = getStreakStatus(membership);
                 return (
-                  <Card key={membership.streak.id} className="gaming-card hover:scale-[1.02] transition-transform cursor-pointer">
+                  <Card key={membership.streak.id} className="gaming-card hover:scale-[1.02] transition-transform">
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <div>
                             <h3 className="font-semibold text-foreground">{membership.streak.name}</h3>
@@ -347,20 +374,28 @@ export const ProfileScreen = () => {
                           </div>
                         </div>
                         
-                        <div className="text-right">
+                        <div className="flex flex-col gap-3">
                           <div className="flex items-center gap-4">
                             <div className="text-center">
-                              <div className="font-semibold text-foreground">{membership.total_points}</div>
-                              <div className="text-xs text-muted-foreground">Scales</div>
+                              <div className="text-lg font-semibold text-foreground">{membership.total_points}</div>
+                              <div className="text-xs text-blue-400">Gems</div>
                             </div>
                             <div className="text-center">
-                              <div className="font-semibold text-foreground">{membership.current_streak}</div>
-                              <div className="text-xs text-muted-foreground">Streak</div>
+                              <div className="text-lg font-semibold text-foreground">{membership.current_streak}</div>
+                              <div className="text-xs text-blue-400">Streak</div>
                             </div>
                             <div className="text-center">
-                              <div className="font-semibold text-foreground">{membership.lives_remaining}</div>
-                              <div className="text-xs text-muted-foreground">Lives</div>
+                              <div className="text-lg font-semibold text-foreground">{membership.lives_remaining}</div>
+                              <div className="text-xs text-blue-400">Lives</div>
                             </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/groups/${membership.streak.id}/settings`)}>
+                              Manage
+                            </Button>
+                            <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleShareStreak(membership.streak)}>
+                              Invite
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -435,35 +470,109 @@ export const ProfileScreen = () => {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="gaming-card">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Account Settings</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-foreground">Subscription Status</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {profile.subscription_status === 'paid' ? 'Pro Member' : 'Free Member'}
-                      </p>
-                    </div>
-                    <Badge className={profile.subscription_status === 'paid' ? 'bg-secondary/20 text-secondary' : 'bg-muted/20 text-muted-foreground'}>
-                      {profile.subscription_status === 'paid' ? 'Pro' : 'Free'}
-                    </Badge>
+                  <div className="space-y-4">
+                    <Card className="gaming-card">
+                      <CardHeader>
+                        <CardTitle className="text-foreground">Profile Information</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="display_name">Display Name</Label>
+                          <Input
+                            id="display_name"
+                            value={editForm.display_name}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, display_name: e.target.value }))}
+                            placeholder="How others will see you"
+                            className="mobile-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="full_name">Full Name</Label>
+                          <Input
+                            id="full_name"
+                            value={editForm.full_name}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                            placeholder="Your full name"
+                            className="mobile-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bio">Bio</Label>
+                          <Textarea
+                            id="bio"
+                            value={editForm.bio}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                            placeholder="Tell others about yourself..."
+                            className="mobile-input"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleSaveProfile}
+                          disabled={saving}
+                          className="w-full mobile-button"
+                        >
+                          {saving ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save Changes
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="gaming-card">
+                      <CardHeader>
+                        <CardTitle className="text-foreground">Account Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-foreground">Subscription Status</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {profile.subscription_status === 'paid' ? 'Pro Member' : 'Free Member'}
+                            </p>
+                          </div>
+                          <Badge className={profile.subscription_status === 'paid' ? 'bg-secondary/20 text-secondary' : 'bg-muted/20 text-muted-foreground'}>
+                            {profile.subscription_status === 'paid' ? 'Pro' : 'Free'}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-foreground">Max Streaks</h4>
+                            <p className="text-sm text-muted-foreground">Maximum streaks you can join</p>
+                          </div>
+                          <span className="font-semibold text-foreground">{profile.max_groups}</span>
+                        </div>
+
+                        <Button
+                          variant="destructive"
+                          onClick={handleSignOut}
+                          className="w-full mobile-button mt-4"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Sign Out
+                        </Button>
+                      </CardContent>
+                    </Card>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-foreground">Max Streaks</h4>
-                      <p className="text-sm text-muted-foreground">Maximum streaks you can join</p>
-                    </div>
-                    <span className="font-semibold text-foreground">{profile.max_groups}</span>
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Share Dialog */}
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          streakName={currentStreak?.name || ""}
+          inviteCode={currentStreak?.code || ""}
+        />
       </div>
     </div>
   );

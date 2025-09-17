@@ -66,6 +66,10 @@ export const HabitSelectionPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
+  const [groupData, setGroupData] = useState<any>(null);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [canModifyPowers, setCanModifyPowers] = useState(true);
+  const [daysLeftToModify, setDaysLeftToModify] = useState(0);
   const [newHabit, setNewHabit] = useState({
     title: "",
     description: "",
@@ -76,9 +80,47 @@ export const HabitSelectionPage = () => {
   });
 
   useEffect(() => {
+    fetchGroupData();
     fetchHabits();
     fetchUserHabits();
   }, [groupId, user]);
+
+  const fetchGroupData = async () => {
+    if (!groupId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("id", groupId)
+        .single();
+
+      if (error) throw error;
+      setGroupData(data);
+
+      // Check if it's first time (no habits selected yet)
+      const { data: userHabits } = await supabase
+        .from("user_habits")
+        .select("habit_id")
+        .eq("group_id", groupId)
+        .eq("user_id", user?.id);
+
+      setIsFirstTime(!userHabits || userHabits.length === 0);
+
+      // Check if powers can be modified (until start date + 3 days)
+      if (data) {
+        const startDate = new Date(data.start_date);
+        const today = new Date();
+        const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        // Allow modification until 3 days after start date (including day 0, 1, 2, 3)
+        const canModify = daysSinceStart <= 3;
+        setCanModifyPowers(canModify);
+        setDaysLeftToModify(Math.max(0, 3 - daysSinceStart));
+      }
+    } catch (error: any) {
+      console.error("Error fetching group data:", error);
+    }
+  };
 
   const fetchHabits = async () => {
     try {
@@ -105,11 +147,11 @@ export const HabitSelectionPage = () => {
     if (!groupId || !user) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .rpc('get_user_selected_habits', { p_group_id: groupId, p_user_id: user.id });
 
       if (error) throw error;
-      const habitIds = (data || []).map((uh: any) => uh.habit_id);
+      const habitIds = ((data as any[]) || []).map((uh: any) => uh.habit_id);
       setSelectedHabits(habitIds);
     } catch (error: any) {
       console.error("Error fetching user habits:", error);
@@ -117,6 +159,7 @@ export const HabitSelectionPage = () => {
   };
 
   const handleHabitToggle = (habitId: string) => {
+    if (!canModifyPowers) return;
     setSelectedHabits(prev => 
       prev.includes(habitId) 
         ? prev.filter(id => id !== habitId)
@@ -182,7 +225,7 @@ export const HabitSelectionPage = () => {
     try {
       const slug = newHabit.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       if (!slug) return;
-      const { data, error } = await supabase.rpc('add_habit_if_absent', {
+      const { data, error } = await (supabase as any).rpc('add_habit_if_absent', {
         p_slug: slug,
         p_title: newHabit.title.trim(),
         p_description: newHabit.description.trim(),
@@ -257,14 +300,17 @@ export const HabitSelectionPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 flex items-center justify-center">
         <div className="text-center space-y-2">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading habits...</p>
+          <p className="text-muted-foreground">Loading powers...</p>
         </div>
       </div>
     );
   }
 
+  // Show welcome message for first-time users but still display full interface
+  const showWelcomeMessage = isFirstTime;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4 pb-32">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -274,11 +320,59 @@ export const HabitSelectionPage = () => {
             className="p-2"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Group
+            Back to Streak
           </Button>
-          <h1 className="text-3xl font-bold gradient-text">Select Your Habits</h1>
+          <h1 className="text-3xl font-bold gradient-text">Select Your Powers</h1>
           <div className="w-20" />
         </div>
+
+        {/* Welcome Message for First-Time Users */}
+        {showWelcomeMessage && (
+          <Card className="gaming-card border-primary/20 bg-gradient-to-r from-primary/10 to-purple-600/10">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="space-y-3">
+                <div className="w-16 h-16 bg-gradient-to-r from-primary to-primary/80 rounded-full flex items-center justify-center mx-auto">
+                  <Zap className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold gradient-text">Welcome to Your Streak!</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Choose your powers to begin tracking your journey. Select at least 6 powers worth 75+ gems total.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Powers Modification Status */}
+        {!canModifyPowers ? (
+          <Card className="gaming-card border-warning/20 bg-warning/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-warning" />
+                <div>
+                  <p className="font-semibold text-warning">Powers Locked</p>
+                  <p className="text-sm text-muted-foreground">
+                    Power selection is frozen after day 3 of your streak. You can view your current powers below.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : daysLeftToModify > 0 && (
+          <Card className="gaming-card border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="font-semibold text-primary">Powers Can Be Modified</p>
+                  <p className="text-sm text-muted-foreground">
+                    You have {daysLeftToModify} day{daysLeftToModify !== 1 ? 's' : ''} left to modify your power selection.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Search and Filter Bar */}
         <Card className="gaming-card">
@@ -363,13 +457,18 @@ export const HabitSelectionPage = () => {
         </Card>
 
         {/* Selection Summary */}
-        <Card className="gaming-card border-primary/20">
+        <Card className={`gaming-card ${canModifyPowers ? 'border-primary/20' : 'border-warning/20'}`}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-lg font-semibold">Selection Progress</p>
+                <p className="text-lg font-semibold">
+                  {canModifyPowers ? 'Selection Progress' : 'Current Powers'}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  Choose at least 6 powers worth 75+ scales total
+                  {canModifyPowers 
+                    ? 'Choose at least 6 powers worth 75+ gems total'
+                    : 'Your powers are locked after day 3 of the streak'
+                  }
                 </p>
               </div>
               <div className="text-right">
@@ -380,7 +479,7 @@ export const HabitSelectionPage = () => {
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold gradient-text">{getTotalPoints()}</p>
-                    <p className="text-sm text-muted-foreground">Scales</p>
+                    <p className="text-sm text-muted-foreground">Gems</p>
                   </div>
                   <div className="text-center">
                     {isValidSelection() ? (
@@ -414,13 +513,73 @@ export const HabitSelectionPage = () => {
           </TabsList>
 
           <TabsContent value={activeCategory} className="mt-6">
-            <Tabs defaultValue="hard">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="all">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="hard">Hard</TabsTrigger>
                 <TabsTrigger value="medium">Medium</TabsTrigger>
                 <TabsTrigger value="soft">Soft</TabsTrigger>
                 <TabsTrigger value="custom">Custom</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="all" className="space-y-4">
+                <div className="grid gap-4">
+                  {filteredHabits.map((habit) => (
+                    <Card 
+                      key={habit.id} 
+                      className={`gaming-card cursor-pointer transition-all hover:scale-[1.02] ${
+                        selectedHabits.includes(habit.id)
+                          ? 'border-accent bg-accent/5'
+                          : 'border-border hover:border-primary/30'
+                      } ${!canModifyPowers ? 'opacity-75' : ''}`}
+                      onClick={() => handleHabitToggle(habit.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedHabits.includes(habit.id)}
+                            onChange={() => handleHabitToggle(habit.id)}
+                            className="mt-1 data-[state=checked]:bg-accent data-[state=checked]:border-accent"
+                          />
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground leading-tight">
+                                {habit.title}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Star className="w-3 h-3 text-secondary" />
+                                <span className="text-sm font-semibold text-secondary">
+                                  {habit.points}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {habit.description}
+                            </p>
+                            
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getCategoryColor(habit.category)}`}
+                              >
+                                {habit.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
+                                {habit.frequency}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                                {habit.default_set}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
 
               <TabsContent value="hard" className="space-y-4">
                 <div className="grid gap-4">
@@ -671,8 +830,8 @@ export const HabitSelectionPage = () => {
           </Card>
         )}
 
-        {/* Save Button */}
-        <div className="sticky bottom-6 space-y-2">
+        {/* Save Button - Above Bottom Navigation */}
+        <div className="sticky bottom-6 space-y-2 pb-24">
           <div className="flex gap-2">
             <Dialog open={showAddHabit} onOpenChange={setShowAddHabit}>
               <DialogTrigger asChild>
@@ -705,17 +864,22 @@ export const HabitSelectionPage = () => {
               variant="default" 
               size="lg" 
               className="flex-1 h-12 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
-              disabled={!isValidSelection() || saving}
+              disabled={!isValidSelection() || saving || !canModifyPowers}
             >
               {saving ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
                   Saving...
                 </div>
+              ) : !canModifyPowers ? (
+                <>
+                  <AlertCircle className="w-5 h-5 mr-2" />
+                  Powers Locked ({selectedHabits.length} powers, {getTotalPoints()} gems)
+                </>
               ) : (
                 <>
                   <CheckCircle className="w-5 h-5 mr-2" />
-                  Save Habits ({selectedHabits.length} selected, {getTotalPoints()} points)
+                  Save Powers ({selectedHabits.length} selected, {getTotalPoints()} gems)
                 </>
               )}
             </Button>

@@ -88,7 +88,7 @@ export const MemberDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4 pb-32">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">

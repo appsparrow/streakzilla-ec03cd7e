@@ -38,8 +38,8 @@ export const JoinGroup = () => {
       setJoinedGroup(data);
 
       toast({
-        title: "Joined group!",
-        description: "You have successfully joined the group.",
+        title: "Joined streak!",
+        description: "You have successfully joined the streak.",
       });
     } catch (error: any) {
       toast({
@@ -60,12 +60,12 @@ export const JoinGroup = () => {
             <div className="w-16 h-16 bg-gradient-to-r from-success to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-white" />
             </div>
-            <CardTitle className="text-2xl">Welcome to the Group!</CardTitle>
+            <CardTitle className="text-2xl">Welcome to the Streak!</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 text-center">
             <div className="space-y-2">
               <p className="text-muted-foreground">
-                You've successfully joined the group. Now you need to select your habits before the challenge starts.
+                You've successfully joined the streak! Now select your powers to begin tracking your journey.
               </p>
             </div>
 
@@ -75,14 +75,14 @@ export const JoinGroup = () => {
                 className="w-full"
                 onClick={() => navigate(`/groups/${joinedGroup}/habits`)}
               >
-                Select Your Habits
+                Select Your Powers
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full"
                 onClick={() => navigate(`/groups/${joinedGroup}`)}
               >
-                View Group Dashboard
+                View Streak Dashboard
               </Button>
             </div>
           </CardContent>
@@ -92,7 +92,7 @@ export const JoinGroup = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4 pb-32">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -104,7 +104,7 @@ export const JoinGroup = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold gradient-text">Join Group</h1>
+          <h1 className="text-3xl font-bold gradient-text">Join Streak</h1>
           <div className="w-20" />
         </div>
 
@@ -112,13 +112,13 @@ export const JoinGroup = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="w-6 h-6 text-primary" />
-              Enter Group Code
+              Enter Streak Code
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleJoinGroup} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="code">Group Code</Label>
+                <Label htmlFor="code">Streak Code</Label>
                 <Input
                   id="code"
                   placeholder="Enter 6-character code"
@@ -129,7 +129,7 @@ export const JoinGroup = () => {
                   required
                 />
                 <p className="text-sm text-muted-foreground">
-                  Ask your friend for the group code they received when creating the group.
+                  Ask your friend for the streak code they received when creating the streak.
                 </p>
               </div>
 
@@ -139,7 +139,7 @@ export const JoinGroup = () => {
                 className="w-full" 
                 disabled={isLoading || groupCode.length !== 6}
               >
-                {isLoading ? "Joining..." : "Join Group"}
+                {isLoading ? "Joining..." : "Join Streak"}
               </Button>
             </form>
           </CardContent>
@@ -154,8 +154,8 @@ export const JoinGroup = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>1. You'll be added to the group</p>
-            <p>2. Select your habits (6+ habits, 75+ points minimum)</p>
+            <p>1. You'll be added to the streak</p>
+            <p>2. Select your powers (6+ habits, 75+ points minimum)</p>
             <p>3. Wait for the challenge start date</p>
             <p>4. Start your daily check-ins and build your streak!</p>
           </CardContent>

@@ -27,20 +27,31 @@ export const GroupCheckinsFeed = ({ groupId }: { groupId: string }) => {
     let isMounted = true;
     const load = async () => {
       try {
-        // Join to profiles is allowed by policy; if not, we still show empty without crashing
-        const { data, error } = await supabase
-          .from("checkins")
-          .select(`
-            id, day_number, points_earned, note, photo_path, created_at,
-            profiles:profiles ( id, display_name, avatar_url )
-          `)
-          .eq("group_id", groupId)
-          .order("created_at", { ascending: false })
-          .limit(20);
+        // Use RPC to avoid RLS recursion issues
+        const { data, error } = await (supabase as any).rpc('get_group_checkins', {
+          p_group_id: groupId,
+          p_limit: 20
+        });
+        
         if (error) {
+          console.error('Error fetching group check-ins:', error);
           setItems([]);
         } else {
-          setItems((data || []) as unknown as FeedItem[]);
+          // Transform RPC response to match our interface
+          const transformedItems = (data || []).map((item: any) => ({
+            id: item.id,
+            day_number: item.day_number,
+            points_earned: item.points_earned,
+            note: item.note,
+            photo_path: item.photo_path,
+            created_at: item.created_at,
+            profiles: {
+              id: item.user_id,
+              display_name: item.display_name,
+              avatar_url: item.avatar_url
+            }
+          }));
+          setItems(transformedItems);
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -57,7 +68,7 @@ export const GroupCheckinsFeed = ({ groupId }: { groupId: string }) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDays className="w-5 h-5" />
-          Group Check-ins
+          Streak Check-ins
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -120,9 +120,17 @@
 }
 
 @layer components {
-  /* Gaming UI Components */
+  /* Professional Mobile-First UI Components */
   .gaming-card {
     @apply bg-gradient-to-br from-card to-muted border border-border rounded-xl shadow-[var(--shadow-card)] backdrop-blur-sm;
+  }
+  
+  .mobile-card {
+    @apply bg-card border border-border rounded-2xl shadow-lg p-4 transition-all duration-200;
+  }
+  
+  .mobile-card:hover {
+    @apply shadow-xl scale-[1.02];
   }
   
   .streak-glow {
@@ -161,6 +169,39 @@
     animation: pulse-glow 2s ease-in-out infinite alternate;
   }
   
+  /* Mobile-optimized components */
+  .mobile-header {
+    @apply sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border;
+  }
+  
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border;
+  }
+  
+  .mobile-button {
+    @apply min-h-[44px] px-6 py-3 rounded-xl font-semibold transition-all duration-200;
+  }
+  
+  .mobile-button:active {
+    @apply scale-95;
+  }
+  
+  .mobile-input {
+    @apply min-h-[44px] px-4 py-3 rounded-xl border border-border bg-input text-foreground;
+  }
+  
+.mobile-tile {
+  @apply w-full bg-card border border-border rounded-2xl p-6 shadow-lg transition-all duration-200;
+}
+  
+  .mobile-tile:hover {
+    @apply shadow-xl scale-[1.02];
+  }
+  
+  .mobile-tile:active {
+    @apply scale-[0.98];
+  }
+  
   @keyframes pulse-glow {
     from {
       box-shadow: 0 0 5px hsl(217 91% 60% / 0.3);
@@ -168,5 +209,44 @@
     to {
       box-shadow: 0 0 25px hsl(217 91% 60% / 0.6);
     }
+  }
+  
+  /* Professional animations */
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+  
+  /* Hide scrollbars for cleaner mobile look */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

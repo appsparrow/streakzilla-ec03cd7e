@@ -7,6 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
+  rpc: {
+    leave_group: (args: { p_group_id: string; p_user_id: string }) => void;
+    get_user_groups: () => Promise<any[]>;
+  };
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {

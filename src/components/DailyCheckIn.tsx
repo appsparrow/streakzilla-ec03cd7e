@@ -172,7 +172,7 @@ export const DailyCheckIn = () => {
       
       toast({
         title: "Check-in Complete! 🎉",
-        description: `You earned ${(data as any)?.points_earned || 0} scales! Current streak: ${(data as any)?.current_streak || 0}`,
+        description: `You earned ${(data as any)?.points_earned || 0} gems! Current streak: ${(data as any)?.current_streak || 0}`,
       });
 
       // Redirect back to group dashboard after a delay
@@ -263,7 +263,7 @@ export const DailyCheckIn = () => {
                 <h3 className="font-semibold text-foreground">Today's Progress</h3>
                 <Badge variant="secondary" className="bg-secondary/20 text-secondary">
                   <Zap className="w-3 h-3 mr-1" />
-                  {totalPoints} scales
+                  {totalPoints} gems
                 </Badge>
               </div>
               
@@ -321,7 +321,7 @@ export const DailyCheckIn = () => {
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       <Star className="w-3 h-3 inline mr-1" />
-                      {habit.points} scales
+                      {habit.points} gems
                     </span>
                   </div>
                 </div>
@@ -450,7 +450,7 @@ export const DailyCheckIn = () => {
           ) : (
             <>
               <Zap className="w-5 h-5 mr-2" />
-              Complete Check-In ({totalPoints} scales)
+              Complete Check-In ({totalPoints} gems)
             </>
           )}
         </Button>

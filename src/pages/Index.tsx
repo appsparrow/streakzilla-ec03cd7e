@@ -19,14 +19,11 @@ import {
 } from "lucide-react";
 
 interface UserGroup {
-  id: string;
+  group_id: string;
   role: string;
-  joined_at: string;
-  lives_remaining: number;
   total_points: number;
   current_streak: number;
-  restart_count: number;
-  is_out: boolean;
+  lives_remaining: number;
   groups: {
     id: string;
     name: string;
@@ -100,7 +97,7 @@ const Index = () => {
 
       // Fetch user's groups via RPC (requires FIX_DATABASE_POLICIES.sql)
       try {
-        const { data: rpcGroups, error: rpcErr } = await supabase.rpc('get_user_groups');
+        const { data: rpcGroups, error: rpcErr } = await (supabase as any).rpc('get_user_groups');
         if (rpcErr) {
           console.error('get_user_groups error:', rpcErr);
           setUserGroups([]);
@@ -172,70 +169,89 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 p-4 pb-32 overflow-auto">
+      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center justify-center text-center gap-2">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center">
-              <Flame className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-full overflow-hidden p-1 shadow-md">
+              <img 
+                src="/logo-streakzilla-w.png" 
+                alt="Streakzilla" 
+                className="w-full h-full object-contain"
+              />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold gradient-text">Streakzilla</h1>
-              <p className="text-muted-foreground">Welcome back, {profile?.display_name || user?.email}</p>
-            </div>
+            <h1 className="text-2xl text-blue-400">Streakzilla</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate("/profile")}
-              className="hover:bg-muted/50"
-            >
-              <UserCircle className="w-5 h-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate("/settings")}
-              className="hover:bg-muted/50"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleSignOut}
-              className="hover:bg-muted/50"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">Welcome back, {profile?.display_name || user?.email}</p>
         </div>
 
-        {/* Group List */}
-        <Card className="gaming-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Your Streaks
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {userGroups.length === 0 && (
-              <p className="text-sm text-muted-foreground">You are not part of any streak yet. Use Profile to create or join.</p>
-            )}
-            {userGroups.slice(0, 2).map((g: any) => (
-              <div key={g.group_id} className="p-3 rounded border border-border bg-muted/20 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate(`/groups/${g.group_id}`)} role="button" aria-label={`Open ${g.groups?.name}`}>
-                <div>
-                  <div className="font-semibold">{g.groups?.name}</div>
-                  <div className="text-xs text-muted-foreground">Code: {g.groups?.code}</div>
-                </div>
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        {/* Streaks Horizontal Tiles */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Your Streaks
+          </h2>
+          
+          <div className="flex justify-center gap-2 mb-2">
+            <Button onClick={() => navigate("/create-group")}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Streak
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/join-group")}>
+              <Users className="w-4 h-4 mr-2" />
+              Join Streak
+            </Button>
+          </div>
+
+          {userGroups.length === 0 ? (
+            <Card className="gaming-card">
+              <CardContent className="p-6 text-center">
+                <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-bold text-foreground mb-2">No Streaks yet!</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create or join a Streak to start your journey.
+                </p>
+                <div />
+              </CardContent>
+            </Card>
+          ) : (
+                <div className="grid grid-cols-1 gap-4">
+              {userGroups.map((userGroup) => (
+                <Card
+                  key={userGroup.group_id}
+                  className="mobile-tile cursor-pointer animate-slide-up"
+                  onClick={() => navigate(`/groups/${userGroup.group_id}`)}
+                >
+                  <CardContent className="p-0">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold gradient-text">{userGroup.groups?.name || "Unknown Streak"}</h3>
+                      {userGroup.groups?.is_active ? (
+                        <Badge className="bg-success/20 text-success border-success/30">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-energy" />
+                        <span className="font-semibold text-foreground">{userGroup.total_points} Gems</span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Flame className="w-4 h-4 text-warning" />
+                        <span className="font-semibold text-foreground">{userGroup.current_streak} day Streak</span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-foreground">{userGroup.role === 'admin' ? 'Admin' : 'Member'}</span>
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Optional quick links removed from home as requested */}
       </div>
