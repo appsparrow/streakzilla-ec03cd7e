@@ -78,6 +78,8 @@ const Index = () => {
               id: user?.id,
               display_name: user?.email?.split('@')[0] || 'User',
               full_name: user?.user_metadata?.full_name || '',
+              email: user?.email,
+              max_groups: 1
             })
             .select()
             .single();

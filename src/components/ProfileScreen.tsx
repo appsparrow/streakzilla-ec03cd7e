@@ -94,7 +94,16 @@ export const ProfileScreen = () => {
         .eq('id', user?.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If profile doesn't exist, create one
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating new profile...');
+          await createMissingProfile();
+          return;
+        }
+        throw error;
+      }
+      
       setProfile(data);
       setEditForm({
         display_name: data.display_name || '',
@@ -103,6 +112,38 @@ export const ProfileScreen = () => {
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const createMissingProfile = async () => {
+    try {
+      if (!user) return;
+      
+      const profileData = {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || 'User',
+        display_name: user.user_metadata?.display_name || 'User',
+        email: user.email,
+        max_groups: 1 // Default free plan
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      console.log('Profile created successfully:', data);
+      setProfile(data);
+      setEditForm({
+        display_name: data.display_name || '',
+        full_name: data.full_name || '',
+        bio: data.bio || ''
+      });
+    } catch (error) {
+      console.error('Error creating profile:', error);
     }
   };
 

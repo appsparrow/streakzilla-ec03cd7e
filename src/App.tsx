@@ -8,6 +8,7 @@ import { useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
+import { Landing } from "./pages/Landing";
 import { CreateGroup } from "./pages/CreateGroup";
 import { JoinGroup } from "./pages/JoinGroup";
 import { GroupDashboard } from "./pages/GroupDashboard";
@@ -37,7 +38,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/landing" replace />;
   }
   
   return (
@@ -48,14 +49,49 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter 
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
         <Routes>
-          <Route path="/auth" element={<Auth />} />
+          <Route path="/landing" element={
+            <PublicRoute>
+              <Landing />
+            </PublicRoute>
+          } />
+          <Route path="/auth" element={
+            <PublicRoute>
+              <Auth />
+            </PublicRoute>
+          } />
           <Route path="/" element={
             <ProtectedRoute>
               <Index />
@@ -111,7 +147,7 @@ const App = () => (
               <AppSettings />
             </ProtectedRoute>
           } />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/landing" replace />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

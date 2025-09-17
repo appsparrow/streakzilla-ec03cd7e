@@ -82,7 +82,7 @@ export const Auth = () => {
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <Flame className="w-8 h-8 text-primary" />
+           <img src="/logo-streakzilla-w.png" alt="Streakzilla" className="w-8 h-8" />
             <h1 className="text-3xl font-bold gradient-text">Streakzilla</h1>
           </div>
           <p className="text-muted-foreground">Join the ultimate habit challenge</p>

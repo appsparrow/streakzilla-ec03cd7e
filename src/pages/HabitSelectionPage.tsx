@@ -80,9 +80,22 @@ export const HabitSelectionPage = () => {
   });
 
   useEffect(() => {
-    fetchGroupData();
-    fetchHabits();
-    fetchUserHabits();
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchGroupData(),
+          fetchHabits(),
+          fetchUserHabits()
+        ]);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [groupId, user]);
 
   const fetchGroupData = async () => {
@@ -138,8 +151,6 @@ export const HabitSelectionPage = () => {
         description: "Failed to load habits",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -320,7 +331,6 @@ export const HabitSelectionPage = () => {
             className="p-2"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Streak
           </Button>
           <h1 className="text-3xl font-bold gradient-text">Select Your Powers</h1>
           <div className="w-20" />
@@ -373,6 +383,47 @@ export const HabitSelectionPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Selection Summary */}
+        <Card className={`gaming-card ${canModifyPowers ? 'border-primary/20' : 'border-warning/20'}`}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-lg font-semibold">
+                  {canModifyPowers ? 'Selection Progress' : 'Current Powers'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {canModifyPowers 
+                    ? 'Choose at least 6 powers worth 75+ gems total'
+                    : 'Your powers are locked after day 3 of the streak'
+                  }
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-foreground">{selectedHabits.length}</p>
+                    <p className="text-sm text-muted-foreground">Powers</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold gradient-text">{getTotalPoints()}</p>
+                    <p className="text-sm text-muted-foreground">Gems</p>
+                  </div>
+                  <div className="text-center">
+                    {isValidSelection() ? (
+                      <CheckCircle className="w-8 h-8 text-success mx-auto" />
+                    ) : (
+                      <AlertCircle className="w-8 h-8 text-warning mx-auto" />
+                    )}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isValidSelection() ? "Valid" : "Need more"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search and Filter Bar */}
         <Card className="gaming-card">
@@ -452,47 +503,6 @@ export const HabitSelectionPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Selection Summary */}
-        <Card className={`gaming-card ${canModifyPowers ? 'border-primary/20' : 'border-warning/20'}`}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-lg font-semibold">
-                  {canModifyPowers ? 'Selection Progress' : 'Current Powers'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {canModifyPowers 
-                    ? 'Choose at least 6 powers worth 75+ gems total'
-                    : 'Your powers are locked after day 3 of the streak'
-                  }
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-foreground">{selectedHabits.length}</p>
-                    <p className="text-sm text-muted-foreground">Powers</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold gradient-text">{getTotalPoints()}</p>
-                    <p className="text-sm text-muted-foreground">Gems</p>
-                  </div>
-                  <div className="text-center">
-                    {isValidSelection() ? (
-                      <CheckCircle className="w-8 h-8 text-success mx-auto" />
-                    ) : (
-                      <AlertCircle className="w-8 h-8 text-warning mx-auto" />
-                    )}
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {isValidSelection() ? "Valid" : "Need more"}
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -833,10 +843,12 @@ export const HabitSelectionPage = () => {
         {/* Save Button - Above Bottom Navigation */}
         <div className="sticky bottom-6 space-y-2 pb-24">
           <div className="flex gap-2">
-            <Dialog open={showAddHabit} onOpenChange={setShowAddHabit}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex-1">Add Habit</Button>
-              </DialogTrigger>
+            {/* Add Habit Dialog - Hidden for now */}
+            {false && (
+              <Dialog open={showAddHabit} onOpenChange={setShowAddHabit}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="flex-1">Add Habit</Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Add a new habit</DialogTitle>
@@ -857,13 +869,14 @@ export const HabitSelectionPage = () => {
                   <Button onClick={handleAddHabit}>Save to Pool</Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            )}
 
             <Button 
               onClick={handleSaveHabits}
               variant="default" 
               size="lg" 
-              className="flex-1 h-12 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
+              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg hover:shadow-xl transition-all"
               disabled={!isValidSelection() || saving || !canModifyPowers}
             >
               {saving ? (
