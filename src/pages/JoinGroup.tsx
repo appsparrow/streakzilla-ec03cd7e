@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,18 @@ export const JoinGroup = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [groupCode, setGroupCode] = useState("");
   const [joinedGroup, setJoinedGroup] = useState<string | null>(null);
+
+  // Populate code from URL parameter
+  useEffect(() => {
+    const codeFromUrl = searchParams.get('code');
+    if (codeFromUrl) {
+      setGroupCode(codeFromUrl.toUpperCase().trim());
+    }
+  }, [searchParams]);
 
   const handleJoinGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +137,12 @@ export const JoinGroup = () => {
                   maxLength={6}
                   required
                 />
+                {searchParams.get('code') && (
+                  <p className="text-sm text-primary flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Code pre-filled from your invitation link
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   Ask your friend for the streak code they received when creating the streak.
                 </p>
