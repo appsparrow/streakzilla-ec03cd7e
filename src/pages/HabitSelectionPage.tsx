@@ -209,25 +209,34 @@ export const HabitSelectionPage = () => {
     setSaving(true);
 
     try {
-      // First, delete existing user habits for this group
-      await supabase
-        .from("user_habits")
-        .delete()
-        .eq("group_id", groupId)
-        .eq("user_id", user.id);
-
-      // Then insert new selections
+      // Use upsert approach: delete existing and insert new in one operation
       const userHabits = selectedHabits.map(habitId => ({
         group_id: groupId,
         user_id: user.id,
         habit_id: habitId,
       }));
 
-      const { error } = await supabase
+      // First, delete existing user habits for this group
+      const { error: deleteError } = await supabase
+        .from("user_habits")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", user.id);
+
+      if (deleteError) {
+        console.error("Delete error:", deleteError);
+        throw deleteError;
+      }
+
+      // Then insert new selections
+      const { error: insertError } = await supabase
         .from("user_habits")
         .insert(userHabits);
 
-      if (error) throw error;
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        throw insertError;
+      }
 
       toast({
         title: "Habits saved!",
@@ -236,9 +245,10 @@ export const HabitSelectionPage = () => {
 
       navigate(`/groups/${groupId}`);
     } catch (error: any) {
+      console.error("Save habits error:", error);
       toast({
         title: "Error",
-        description: "Failed to save habits",
+        description: error.message || "Failed to save habits",
         variant: "destructive",
       });
     } finally {
