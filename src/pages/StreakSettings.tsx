@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Link as LinkIcon, Users, Crown, Settings, Copy, Calendar, Clock, Edit } from 'lucide-react';
+import { ArrowLeft, Link as LinkIcon, Users, Crown, Settings, Copy, Calendar, Clock, Edit, Eye, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -181,6 +181,15 @@ export const StreakSettings = () => {
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Failed to update duration', variant: 'destructive' });
     }
+  };
+
+  const copyWatcherLink = () => {
+    const watcherLink = `${window.location.origin}/watch/${groupId}`;
+    navigator.clipboard.writeText(watcherLink);
+    toast({
+      title: "Watcher link copied!",
+      description: "Share this link with family and friends who want to watch your progress.",
+    });
   };
 
   if (loading) {
@@ -361,7 +370,35 @@ export const StreakSettings = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="mobile-button text-destructive hover:text-destructive-foreground hover:bg-destructive" 
+                  className="mobile-button border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white" 
+                  onClick={copyWatcherLink}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Watcher Link
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="gaming-card border-destructive/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive text-lg">
+              <Settings className="w-5 h-5" />
+              Danger Zone
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                These actions are permanent and cannot be undone. Please proceed with caution.
+              </p>
+              
+              <div className="grid grid-cols-1 gap-2">
+                <Button 
+                  variant="outline" 
+                  className="mobile-button text-destructive hover:text-destructive-foreground hover:bg-destructive border-destructive/30" 
                   onClick={() => setConfirmLeaveOpen(true)}
                 >
                   Leave Streak

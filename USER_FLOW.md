@@ -92,7 +92,7 @@ A gamified habit tracking app where users form groups ("streaks") to build habit
 
 **Key Rules**:
 - **First-time setup**: Must select powers before streak starts
-- **Modification window**: Can change powers until `start_date + 3 days`
+- **Modification window**: Can change powers until `join_date + 3 days`
 - **After day 3**: Power selection is locked for consistency
 
 **Power Categories**:

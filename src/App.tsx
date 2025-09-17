@@ -20,6 +20,7 @@ import { MemberDetail } from "./pages/MemberDetail";
 import { MobileNavigation } from "./components/MobileNavigation";
 import { StreakSettings } from "./pages/StreakSettings";
 import { Settings as AppSettings } from "./pages/Settings";
+import { WatcherView } from "./pages/WatcherView";
 
 const queryClient = new QueryClient();
 
@@ -147,6 +148,7 @@ const App = () => (
               <AppSettings />
             </ProtectedRoute>
           } />
+          <Route path="/watch/:groupId" element={<WatcherView />} />
           <Route path="*" element={<Navigate to="/landing" replace />} />
         </Routes>
       </BrowserRouter>

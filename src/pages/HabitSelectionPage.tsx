@@ -120,15 +120,29 @@ export const HabitSelectionPage = () => {
 
       setIsFirstTime(!userHabits || userHabits.length === 0);
 
-      // Check if powers can be modified (until start date + 3 days)
+      // Check if powers can be modified (until join date + 3 days)
       if (data) {
-        const startDate = new Date(data.start_date);
-        const today = new Date();
-        const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        // Allow modification until 3 days after start date (including day 0, 1, 2, 3)
-        const canModify = daysSinceStart <= 3;
-        setCanModifyPowers(canModify);
-        setDaysLeftToModify(Math.max(0, 3 - daysSinceStart));
+        // Get user's join date from group_members
+        const { data: membership } = await supabase
+          .from('group_members')
+          .select('joined_at')
+          .eq('group_id', groupId)
+          .eq('user_id', user?.id)
+          .single();
+
+        if (membership?.joined_at) {
+          const joinDate = new Date(membership.joined_at);
+          const today = new Date();
+          const daysSinceJoin = Math.floor((today.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+          // Allow modification until 3 days after join date (including day 0, 1, 2, 3)
+          const canModify = daysSinceJoin <= 3;
+          setCanModifyPowers(canModify);
+          setDaysLeftToModify(Math.max(0, 3 - daysSinceJoin));
+        } else {
+          // Fallback: if no join date, allow modification
+          setCanModifyPowers(true);
+          setDaysLeftToModify(3);
+        }
       }
     } catch (error: any) {
       console.error("Error fetching group data:", error);

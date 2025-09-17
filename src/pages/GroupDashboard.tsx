@@ -51,6 +51,7 @@ interface UserMembership {
   total_points: number;
   current_streak: number;
   lives_remaining: number;
+  joined_at: string;
 }
 
 export const GroupDashboard = () => {
@@ -115,7 +116,8 @@ export const GroupDashboard = () => {
           role: resolvedRole,
           total_points: details.user_total_points,
           current_streak: details.user_current_streak,
-          lives_remaining: details.user_lives_remaining
+          lives_remaining: details.user_lives_remaining,
+          joined_at: details.user_joined_at
         });
       }
 
@@ -277,13 +279,13 @@ export const GroupDashboard = () => {
     return Math.max(1, diffDays);
   };
 
-  const daysFromStart = () => {
-    if (!group?.start_date) return 0;
-    const start = new Date(group.start_date);
+  const daysFromJoin = () => {
+    if (!userMembership?.joined_at) return 0;
+    const joinDate = new Date(userMembership.joined_at);
     const today = new Date();
-    return Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.floor((today.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
   };
-  const canEditHabits = daysFromStart() <= 3;
+  const canEditHabits = daysFromJoin() <= 3;
 
   const toggleToday = (id: string) => {
     setTodayCompleted(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
