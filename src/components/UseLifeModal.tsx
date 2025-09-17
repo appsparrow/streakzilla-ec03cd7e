@@ -185,12 +185,13 @@ export const UseLifeModal: React.FC<UseLifeModalProps> = ({
 
       if (error) throw error;
 
-      // Deduct a life from the user
-      const { error: lifeError } = await supabase
-        .from('group_members')
-        .update({ lives_remaining: livesRemaining - 1 })
-        .eq('group_id', groupId)
-        .eq('user_id', user.id);
+      // Deduct a life from the user using RPC function
+      const { error: lifeError } = await (supabase as any).rpc('use_life', {
+        p_group_id: groupId,
+        p_user_id: user.id,
+        p_day_number: selectedDay.day_number,
+        p_completed_habit_ids: selectedHabits
+      });
 
       if (lifeError) throw lifeError;
 

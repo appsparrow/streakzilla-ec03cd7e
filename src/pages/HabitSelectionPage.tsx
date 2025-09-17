@@ -122,16 +122,14 @@ export const HabitSelectionPage = () => {
 
       // Check if powers can be modified (until join date + 3 days)
       if (data) {
-        // Get user's join date from group_members
-        const { data: membership } = await supabase
-          .from('group_members')
-          .select('joined_at')
-          .eq('group_id', groupId)
-          .eq('user_id', user?.id)
-          .single();
+        // Get user's join date using the RPC function to avoid RLS issues
+        const { data: groupDetails } = await (supabase as any).rpc('get_group_details', {
+          p_group_id: groupId,
+          p_user_id: user?.id
+        });
 
-        if (membership?.joined_at) {
-          const joinDate = new Date(membership.joined_at);
+        if (groupDetails && groupDetails.length > 0 && groupDetails[0].user_joined_at) {
+          const joinDate = new Date(groupDetails[0].user_joined_at);
           const today = new Date();
           const daysSinceJoin = Math.floor((today.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
           // Allow modification until 3 days after join date (including day 0, 1, 2, 3)

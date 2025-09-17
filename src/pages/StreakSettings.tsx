@@ -45,13 +45,11 @@ export const StreakSettings = () => {
         // Fallback: creator is always admin
         let admin = g?.created_by === user?.id;
         try {
-          const { data: membership } = await supabase
-            .from('group_members')
-            .select('role')
-            .eq('group_id', groupId)
-            .eq('user_id', user?.id)
-            .single();
-          admin = admin || ((membership?.role || '') === 'admin');
+          const { data: groupDetails } = await (supabase as any).rpc('get_group_details', {
+            p_group_id: groupId,
+            p_user_id: user?.id
+          });
+          admin = admin || (groupDetails && groupDetails.length > 0 && groupDetails[0].user_role === 'admin');
         } catch (e) {
           // ignore; rely on creator fallback
         }
@@ -85,22 +83,13 @@ export const StreakSettings = () => {
   const handleLeave = async () => {
     if (!groupId || !user) return;
     try {
-      // First try to delete directly with RLS
-      const { error: deleteError } = await supabase
-        .from('group_members')
-        .delete()
-        .eq('group_id', groupId)
-        .eq('user_id', user.id);
-
-      if (deleteError) {
-        console.error('Direct delete failed:', deleteError);
-        // If direct delete fails, try the RPC function
-        const { error: rpcError } = await (supabase as any).rpc('leave_group', {
-          p_group_id: groupId,
-          p_user_id: user.id
-        });
-        if (rpcError) throw rpcError;
-      }
+      // Use the RPC function to leave the group (bypasses RLS issues)
+      const { error: rpcError } = await (supabase as any).rpc('leave_group', {
+        p_group_id: groupId,
+        p_user_id: user.id
+      });
+      
+      if (rpcError) throw rpcError;
 
       toast({ 
         title: 'Left streak', 
