@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { getRedirectUrl } from "@/lib/constants";
 import { Flame, Mail, Lock, User } from "lucide-react";
 
 export const Auth = () => {
@@ -27,7 +28,7 @@ export const Auth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: getRedirectUrl('/'),
           data: {
             full_name: fullName,
             display_name: displayName,
