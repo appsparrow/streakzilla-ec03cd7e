@@ -67,9 +67,9 @@ export const WatcherView = () => {
 
       if (streakError) throw streakError;
 
-      // Fetch member leaderboard
-      const { data: memberData, error: memberError } = await supabase
-        .rpc('get_group_leaderboard', { p_group_id: groupId });
+      // Fetch member leaderboard using existing function
+      const { data: memberData, error: memberError } = await (supabase as any)
+        .rpc('get_group_members_details', { p_group_id: groupId });
 
       if (memberError) throw memberError;
 
@@ -80,21 +80,29 @@ export const WatcherView = () => {
       const daysCompleted = Math.max(0, daysSinceStart);
       const daysRemaining = Math.max(0, streak.duration_days - daysCompleted);
       
-      const totalPoints = memberData.reduce((sum: number, member: MemberData) => sum + member.total_points, 0);
-      const averageStreak = memberData.length > 0 
-        ? Math.round(memberData.reduce((sum: number, member: MemberData) => sum + member.current_streak, 0) / memberData.length)
+      const members = (memberData as any[]) || [];
+      const totalPoints = members.reduce((sum: number, member: any) => sum + (member.total_points || 0), 0);
+      const averageStreak = members.length > 0 
+        ? Math.round(members.reduce((sum: number, member: any) => sum + (member.current_streak || 0), 0) / members.length)
         : 0;
 
       setStreakData({
         ...streak,
-        member_count: memberData.length,
+        member_count: members.length,
         total_points: totalPoints,
         average_streak: averageStreak,
         days_completed: daysCompleted,
         days_remaining: daysRemaining
       });
 
-      setMembers(memberData || []);
+      // Add rank to member data
+      const membersWithRank = members.map((member, index) => ({
+        ...member,
+        id: member.user_id,
+        rank: index + 1
+      }));
+      
+      setMembers(membersWithRank);
     } catch (error: any) {
       setError(error.message || 'Failed to load streak data');
     } finally {

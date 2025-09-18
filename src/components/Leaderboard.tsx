@@ -149,20 +149,22 @@ export const Leaderboard = ({ groupId }: LeaderboardProps) => {
       const diffTime = today.getTime() - startDate.getTime();
       const daysComplete = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-      // Prefer RPC for consistent ordering and policy-safe access
-      const { data: rpcData, error: rpcErr } = await supabase
-        .rpc('get_group_leaderboard', { p_group_id: groupId });
+      // Use the same RPC function that works in GroupDashboard
+      const { data: rpcData, error: rpcErr } = await (supabase as any)
+        .rpc('get_group_members_details', { p_group_id: groupId });
 
       let members: LeaderboardMember[] = [];
       if (!rpcErr && rpcData) {
-        members = (rpcData as any[]).map((row, index) => ({
+        // Sort by total_points descending and add rank
+        const sortedData = (rpcData as any[]).sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+        members = sortedData.map((row, index) => ({
           id: row.user_id,
           name: row.display_name || 'Anonymous',
           avatar: row.avatar_url,
           streak: row.current_streak || 0,
           points: row.total_points || 0,
           livesRemaining: row.lives_remaining || 3,
-          rank: row.rank || index + 1,
+          rank: index + 1,
           todayPoints: 0,
           completionRate: 0,
           totalDays: groupData.duration_days,
